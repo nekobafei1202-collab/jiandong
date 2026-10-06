@@ -28,9 +28,9 @@ def open_plan_editor(page: ft.Page, *, on_saved) -> None:
             chips.controls.append(
                 ft.Container(
                     bgcolor=SHELL_ACCENT if active else SHELL_SURFACE,
-                    border=ft.border.all(1, SHELL_BORDER),
+                    border=ft.Border.all(1, SHELL_BORDER),
                     border_radius=20,
-                    padding=ft.padding.symmetric(horizontal=14, vertical=8),
+                    padding=ft.Padding.symmetric(horizontal=14, vertical=8),
                     on_click=toggle,
                     content=ft.Text(name, color="white" if active else SHELL_TEXT),
                 )

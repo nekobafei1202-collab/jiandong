@@ -2,23 +2,26 @@ from __future__ import annotations
 
 import base64
 import io
-from typing import Iterable
 
 import numpy as np
 from PIL import Image, ImageDraw
 
 from jiandong_ai.ai.pose.keypoint import POSE_SKELETON_EDGES, KeypointName
 from jiandong_ai.ai.pose.pose_result import PoseResult
-from jiandong_ai.app.theme import HUD_CYAN
+
+# Default placeholder caption (Chinese via escapes).
+_PLACEHOLDER_TEXT = "\u7b49\u5f85\u6444\u50cf\u5934\u2026"
 
 
 def draw_pose_overlay(
     frame_bgr: np.ndarray,
     pose: PoseResult,
     *,
-    line_color: tuple[int, int, int] = (230, 225, 92),  # BGR ≈ cyan
+    line_color: tuple[int, int, int] = (230, 225, 92),
     point_color: tuple[int, int, int] = (98, 214, 94),
+    vignette: bool = True,
 ) -> np.ndarray:
+    """Draw COCO-17 skeleton on a BGR frame, optionally with a light vignette."""
     import cv2
 
     out = frame_bgr.copy()
@@ -40,6 +43,17 @@ def draw_pose_overlay(
         p = xy(name)
         if p:
             cv2.circle(out, p, 4, point_color, -1, cv2.LINE_AA)
+            cv2.circle(out, p, 4, (255, 255, 255), 1, cv2.LINE_AA)
+
+    if vignette and h > 0 and w > 0:
+        yy, xx = np.ogrid[:h, :w]
+        cy, cx = (h - 1) / 2.0, (w - 1) / 2.0
+        ry = max(cy, 1.0)
+        rx = max(cx, 1.0)
+        dist = np.sqrt(((yy - cy) / ry) ** 2 + ((xx - cx) / rx) ** 2)
+        factor = np.clip(1.0 - 0.28 * np.clip(dist - 0.55, 0, None) / 0.45, 0.72, 1.0)
+        out = (out.astype(np.float32) * factor[..., None]).astype(np.uint8)
+
     return out
 
 
@@ -52,10 +66,30 @@ def frame_to_base64_jpg(frame_bgr: np.ndarray, quality: int = 75) -> str:
     return base64.b64encode(buf.tobytes()).decode("ascii")
 
 
-def placeholder_image(width: int = 480, height: int = 640, text: str = "等待摄像头…") -> str:
+def b64_to_src(b64: str) -> str:
+    """Flet 1.0 Image uses src= data URI, not src_base64."""
+    if not b64:
+        return ""
+    if b64.startswith("data:"):
+        return b64
+    return f"data:image/jpeg;base64,{b64}"
+
+
+def frame_to_image_src(frame_bgr: np.ndarray, quality: int = 75) -> str:
+    return b64_to_src(frame_to_base64_jpg(frame_bgr, quality=quality))
+
+
+def placeholder_image(
+    width: int = 480,
+    height: int = 640,
+    text: str | None = None,
+) -> str:
+    """Return a JPEG data URI suitable for ft.Image(src=...)."""
+    label = _PLACEHOLDER_TEXT if text is None else text
     img = Image.new("RGB", (width, height), (7, 10, 15))
     draw = ImageDraw.Draw(img)
-    draw.text((width // 2 - 60, height // 2), text, fill=(168, 176, 188))
+    tw = max(8, len(label) * 7)
+    draw.text((max(8, width // 2 - tw // 2), height // 2 - 8), label, fill=(168, 176, 188))
     bio = io.BytesIO()
     img.save(bio, format="JPEG", quality=80)
-    return base64.b64encode(bio.getvalue()).decode("ascii")
+    return b64_to_src(base64.b64encode(bio.getvalue()).decode("ascii"))

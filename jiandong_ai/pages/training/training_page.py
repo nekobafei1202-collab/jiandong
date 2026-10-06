@@ -134,15 +134,14 @@ class TrainingView(ft.Container):
     def set_action(self, action: str) -> None:
         self._action_name = action
         self._title.value = ExerciseKind.display_name(action)
-        eid = ExerciseKind.normalize(action)
-        # crunch / unknown manual path: keep display name but don't auto-count
-        if ExerciseKind.is_manual_complete(action) and not ExerciseKind.supports_auto_detect(action):
-            self._manual_btn.visible = True
-            self._pipeline.switch_exercise("squat")
+        manual = ExerciseKind.is_manual_complete(action)
+        self._manual_btn.visible = manual
+        if ExerciseKind.supports_auto_detect(action):
+            self._pipeline.switch_exercise(ExerciseKind.normalize(action))
         else:
-            self._manual_btn.visible = ExerciseKind.is_manual_complete(action)
-            self._pipeline.switch_exercise(eid if ExerciseKind.supports_auto_detect(action) else action)
-            self._manual_btn.visible = ExerciseKind.is_manual_complete(action)
+            # Manual actions (e.g. crunch) skip auto pipeline counting
+            self._pipeline.switch_exercise("squat")
+            self._pipeline.stop()
         self._refresh_coach()
         if self.page:
             self.update()

@@ -24,10 +24,17 @@ leftHip, rightHip, leftKnee, rightKnee, leftAnkle, rightAnkle
 
 ## 打包
 
-在仓库根目录：
+在仓库根目录（需本机安装 Flutter SDK，Flet 会调用）：
 
 ```bash
+# 1. 确保 Python 依赖与模型就绪
+pip install -r requirements.txt
+python -m jiandong_ai.scripts.download_model
+
+# 2. 构建 APK（首次较慢）
 flet build apk
 ```
 
-开发阶段请先用 Windows + `mediapipe` Python 验收识别逻辑；本桥仅在真机打包时启用。
+产物一般在 `build/apk/`。安装到真机后授予相机权限，训练页走原生 Pose Landmarker → `pose_channel.pose_from_bridge_payload` → `TrainingPipeline.process_pose`。
+
+开发阶段请先用 Windows + 摄像头验收识别逻辑；本桥在真机打包时启用。

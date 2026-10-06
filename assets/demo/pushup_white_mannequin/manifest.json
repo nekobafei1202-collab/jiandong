@@ -1,0 +1,51 @@
+{
+  "id": "pushup_white_mannequin",
+  "version": 4,
+  "status": "validated",
+  "final": true,
+  "model": "toe_hinge_diagonal_plank",
+  "locked_by": "user+coach",
+  "note": "FINAL. Diagonal plank rotate about pinned toes; straight legs; ankle near ground. v2.1 elbow-tuck cancelled.",
+  "exerciseId": "pushup",
+  "frameCount": 24,
+  "durationMs": 2200,
+  "pixelSize": {
+    "w": 240,
+    "h": 320
+  },
+  "toe_fixed": [
+    210.0,
+    292.0
+  ],
+  "theta_deg": {
+    "high": 30,
+    "bottom": 16
+  },
+  "frames": [
+    "frame_00.png",
+    "frame_01.png",
+    "frame_02.png",
+    "frame_03.png",
+    "frame_04.png",
+    "frame_05.png",
+    "frame_06.png",
+    "frame_07.png",
+    "frame_08.png",
+    "frame_09.png",
+    "frame_10.png",
+    "frame_11.png",
+    "frame_12.png",
+    "frame_13.png",
+    "frame_14.png",
+    "frame_15.png",
+    "frame_16.png",
+    "frame_17.png",
+    "frame_18.png",
+    "frame_19.png",
+    "frame_20.png",
+    "frame_21.png",
+    "frame_22.png",
+    "frame_23.png"
+  ],
+  "gifPreview": "pushup_white_mannequin.gif"
+}

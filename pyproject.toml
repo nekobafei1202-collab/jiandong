@@ -1,0 +1,23 @@
+[project]
+name = "jiandong-ai"
+version = "1.0.0"
+description = "健动 AI — Python/Flet rewrite of the Flutter fitness coach (camera + pose + coaching)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "flet>=0.25.0",
+  "opencv-python>=4.8.0",
+  "numpy>=1.26.0",
+  "mediapipe>=0.10.14",
+  "Pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[project.scripts]
+jiandong-ai = "jiandong_ai.main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

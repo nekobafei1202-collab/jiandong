@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.idea/
+.vscode/
+*.apk
+*.aab
+.flet/
+storage/
+jiandong_data.json
+*.log
+.DS_Store
+Thumbs.db
+# Keep model directory; large .task may be downloaded locally
+models/*.task

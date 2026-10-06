@@ -1,0 +1,140 @@
+{
+  "id": "plank_white_mannequin",
+  "version": 3,
+  "exerciseId": "plank",
+  "aliases": [
+    "plank",
+    "forearm_plank",
+    "平板支撑"
+  ],
+  "view": "side",
+  "playback": "immediate",
+  "frameCount": 24,
+  "durationMs": 2200,
+  "pixelSize": {
+    "w": 240,
+    "h": 320
+  },
+  "phases": [
+    {
+      "frames": [
+        0,
+        23
+      ],
+      "name": "forearm_plank_hold",
+      "note": "one diagonal: head–shoulder–hip–knee–ankle–toe, forearm and toes on the floor, hip float ≤2%"
+    }
+  ],
+  "avoid": [
+    "kneeling enter or exit",
+    "knees on the ground",
+    "tucking the lower legs",
+    "horizontal floating legs",
+    "a kinked ankle / weird corner",
+    "sagging lumbar",
+    "pike / inverted V",
+    "shrugged shoulders",
+    "looking up"
+  ],
+  "keyframes": {
+    "hold": "all 24 frames: side-view forearm plank, body one diagonal sloping down to the pinned toes",
+    "breath": "hip drifts perpendicular to that line by at most 2% of the shoulder–ankle span"
+  },
+  "audit": {
+    "hold": {
+      "breathPx": 0.0,
+      "hipDriftPctOfSpan": 0.0,
+      "lineDeviationDeg": 0.0,
+      "kneeDeg": 180.0,
+      "legSlopeDeg": 18.0,
+      "footKinkDeg": 0.0,
+      "neckPx": 28.0,
+      "kneeClearanceAboveToePx": 9.3,
+      "toe": [
+        200.07,
+        240.06
+      ],
+      "ankle": [
+        182.95,
+        234.5
+      ],
+      "shoulder": [
+        46.0,
+        190.0
+      ],
+      "elbow": [
+        46.0,
+        240.06
+      ],
+      "knee": [
+        143.0,
+        221.5
+      ],
+      "hip": [
+        99.3,
+        207.3
+      ]
+    },
+    "breath_peak": {
+      "breathPx": 2.304,
+      "hipDriftPctOfSpan": 1.6,
+      "lineDeviationDeg": 3.86,
+      "kneeDeg": 180.0,
+      "legSlopeDeg": 19.5,
+      "footKinkDeg": 1.5,
+      "neckPx": 28.0,
+      "kneeClearanceAboveToePx": 10.4,
+      "toe": [
+        200.07,
+        240.06
+      ],
+      "ankle": [
+        182.95,
+        234.5
+      ],
+      "shoulder": [
+        46.0,
+        190.0
+      ],
+      "elbow": [
+        46.0,
+        240.06
+      ],
+      "knee": [
+        143.3,
+        220.5
+      ],
+      "hip": [
+        100.0,
+        205.1
+      ]
+    }
+  },
+  "frames": [
+    "frame_00.png",
+    "frame_01.png",
+    "frame_02.png",
+    "frame_03.png",
+    "frame_04.png",
+    "frame_05.png",
+    "frame_06.png",
+    "frame_07.png",
+    "frame_08.png",
+    "frame_09.png",
+    "frame_10.png",
+    "frame_11.png",
+    "frame_12.png",
+    "frame_13.png",
+    "frame_14.png",
+    "frame_15.png",
+    "frame_16.png",
+    "frame_17.png",
+    "frame_18.png",
+    "frame_19.png",
+    "frame_20.png",
+    "frame_21.png",
+    "frame_22.png",
+    "frame_23.png"
+  ],
+  "gifPreview": "plank_white_mannequin.gif"
+}

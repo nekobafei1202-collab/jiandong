@@ -25,3 +25,27 @@ jiandong_data.json
 Thumbs.db
 # Keep model directory; large .task may be downloaded locally
 models/*.task
+
+# --- added for GitHub push (2026-10-08) ---
+.env*
+!.env.example
+*.pem
+*.key
+*.jks
+*.keystore
+*.p12
+credentials*.json
+*service-account*.json
+logs/
+*.egg
+.coverage
+htmlcov/
+# local debug / device artifacts (not source)
+_apk_inspect/
+_phone_run/
+_gh_device_code.txt
+_gh_user_code.txt
+_now.xml
+_post_install.png
+_run_*.png
+_run_*.xml

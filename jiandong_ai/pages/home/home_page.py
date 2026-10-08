@@ -4,33 +4,22 @@ from datetime import datetime
 
 import flet as ft
 
-from jiandong_ai.app.theme import (
-    SHELL_ACCENT,
-    SHELL_ACCENT_SOFT,
-    SHELL_BORDER,
-    SHELL_CALORIE,
-    SHELL_CANVAS,
-    SHELL_DIVIDER,
-    SHELL_ON_CTA,
-    SHELL_RADIUS_CARD,
-    SHELL_SURFACE,
-    SHELL_SURFACE_MUTED,
-    SHELL_TEXT,
-    SHELL_TEXT_SECONDARY,
-    SHELL_TEXT_TERTIARY,
-)
+from jiandong_ai.app.theme import SHELL_RADIUS_CARD, ShellColors
 from jiandong_ai.pages.home.plan_editor_page import open_plan_editor
 from jiandong_ai.services.mock_service import MockService
+from jiandong_ai.widgets.course_cover import action_thumb, course_cover
 from jiandong_ai.widgets.matte_card import matte_card
+from jiandong_ai.widgets.motion import PROGRESS_MS, duration_ms
 from jiandong_ai.widgets.section_header import section_header
 
 
 class HomeView(ft.Container):
-    def __init__(self, page: ft.Page, *, on_start_training, on_open_courses=None) -> None:
-        super().__init__(expand=True, bgcolor=SHELL_CANVAS, padding=0)
+    def __init__(self, page: ft.Page, *, on_start_training, on_open_courses=None, on_open_course=None) -> None:
+        super().__init__(expand=True, bgcolor=ShellColors.canvas, padding=0)
         self._host = page
         self.on_start_training = on_start_training
         self.on_open_courses = on_open_courses
+        self.on_open_course = on_open_course
         self._svc = MockService.instance()
         self._scroll = ft.Column(spacing=0, scroll=ft.ScrollMode.AUTO, expand=True)
         self.content = self._scroll
@@ -39,6 +28,12 @@ class HomeView(ft.Container):
 
     def on_show(self) -> None:
         self.refresh()
+
+    def _open_course(self, course) -> None:
+        if self.on_open_course:
+            self.on_open_course(course)
+        elif self.on_open_courses:
+            self.on_open_courses()
 
     def _greeting(self) -> str:
         hour = datetime.now().hour
@@ -54,18 +49,29 @@ class HomeView(ft.Container):
         return f"{now.month}月{now.day}日 {weekdays[now.weekday()]}"
 
     def _edit_plan(self, _: ft.ControlEvent | None = None) -> None:
-        open_plan_editor(self._host, on_saved=self.refresh)
+        open_plan_editor(
+            self._host,
+            on_saved=self.refresh,
+            on_start_training=self.on_start_training,
+        )
 
     def _start_plan(self) -> None:
         actions = self._svc.get_today_plan_actions()
         if not actions:
             self._edit_plan()
             return
-        idx = self._svc.first_incomplete_plan_index()
-        idx = max(0, min(idx, len(actions) - 1))
-        self.on_start_training(actions[idx])
+        # Full today's plan queue (start index resolved inside go_training).
+        def go() -> None:
+            self.on_start_training(actions=actions, session_title="今日计划")
+
+        try:
+            self._host.run_thread(go)
+        except Exception:
+            go()
 
     def refresh(self) -> None:
+        sc = ShellColors
+        self.bgcolor = sc.canvas
         user = self._svc.get_current_user()
         plan = self._svc.get_today_plan()
         done = sum(1 for _, d in plan if d)
@@ -80,10 +86,15 @@ class HomeView(ft.Container):
         next_action = next((a for a, d in plan if not d), plan[0][0] if plan else "深蹲")
         hero = recommended[0] if recommended else None
         streak = self._svc.get_streak_days()
+        prog_ms = duration_ms(self._host, PROGRESS_MS)
 
         children: list[ft.Control] = [
             ft.Container(
                 padding=ft.Padding.only(left=20, top=16, right=20, bottom=8),
+                opacity=1,
+                animate_opacity=ft.Animation(350, ft.AnimationCurve.EASE_OUT_CUBIC)
+                if prog_ms
+                else None,
                 content=ft.Row(
                     [
                         ft.Column(
@@ -92,9 +103,9 @@ class HomeView(ft.Container):
                                     f"{self._greeting()}，{user.name}",
                                     size=22,
                                     weight=ft.FontWeight.W_700,
-                                    color=SHELL_TEXT,
+                                    color=sc.text,
                                 ),
-                                ft.Text(self._date_label(), size=14, color=SHELL_TEXT_SECONDARY),
+                                ft.Text(self._date_label(), size=14, color=sc.text_secondary),
                             ],
                             spacing=6,
                             expand=True,
@@ -104,20 +115,20 @@ class HomeView(ft.Container):
                             [
                                 ft.Container(
                                     padding=ft.Padding.symmetric(horizontal=12, vertical=8),
-                                    bgcolor=SHELL_ACCENT_SOFT,
+                                    bgcolor=sc.accent_soft,
                                     border_radius=999,
                                     content=ft.Row(
                                         [
                                             ft.Icon(
                                                 ft.Icons.LOCAL_FIRE_DEPARTMENT,
                                                 size=16,
-                                                color=SHELL_ACCENT,
+                                                color=sc.accent,
                                             ),
                                             ft.Text(
                                                 f"连续 {streak} 天",
                                                 size=12,
                                                 weight=ft.FontWeight.W_600,
-                                                color=SHELL_ACCENT,
+                                                color=sc.accent,
                                             ),
                                         ],
                                         spacing=4,
@@ -141,27 +152,14 @@ class HomeView(ft.Container):
                     content=ft.Container(
                         border_radius=SHELL_RADIUS_CARD,
                         clip_behavior=ft.ClipBehavior.HARD_EDGE,
-                        height=180,  # ~16:10 at phone width
-                        bgcolor="#1A2430",
+                        height=180,
                         content=ft.Stack(
                             [
-                                ft.Container(
-                                    expand=True,
-                                    gradient=ft.LinearGradient(
-                                        begin=ft.Alignment.TOP_CENTER,
-                                        end=ft.Alignment.BOTTOM_CENTER,
-                                        colors=["#2A3A4A", "#0E141C"],
-                                    ),
-                                    alignment=ft.Alignment.CENTER,
-                                    content=ft.Icon(ft.Icons.FITNESS_CENTER, size=48, color="#5CE1E6"),
-                                ),
-                                ft.Container(
-                                    expand=True,
-                                    gradient=ft.LinearGradient(
-                                        begin=ft.Alignment.TOP_CENTER,
-                                        end=ft.Alignment.BOTTOM_CENTER,
-                                        colors=["#00000000", "#99000000"],
-                                    ),
+                                course_cover(
+                                    exercise=hero,
+                                    height=180,
+                                    show_bottom_fade=True,
+                                    apply_matte_overlay=False,
                                 ),
                                 ft.Container(
                                     expand=True,
@@ -188,9 +186,7 @@ class HomeView(ft.Container):
                                                     side=ft.BorderSide(1, "#FFFFFFB3"),
                                                     shape=ft.RoundedRectangleBorder(radius=999),
                                                 ),
-                                                on_click=lambda e: self.on_open_courses()
-                                                if self.on_open_courses
-                                                else None,
+                                                on_click=lambda e: self._open_course(hero),
                                             ),
                                         ],
                                         spacing=4,
@@ -206,7 +202,7 @@ class HomeView(ft.Container):
         plan_rows: list[ft.Control] = []
         for i, (action, is_done) in enumerate(plan):
             if i > 0:
-                plan_rows.append(ft.Divider(height=1, color=SHELL_DIVIDER))
+                plan_rows.append(ft.Divider(height=1, color=sc.divider))
             target = self._svc.get_quick_target(action)
             row = ft.Container(
                 padding=ft.Padding.symmetric(vertical=12),
@@ -216,17 +212,18 @@ class HomeView(ft.Container):
                         ft.Icon(
                             ft.Icons.CHECK_CIRCLE if is_done else ft.Icons.RADIO_BUTTON_UNCHECKED,
                             size=20,
-                            color=SHELL_ACCENT if is_done else SHELL_TEXT_TERTIARY,
+                            color=sc.accent if is_done else sc.text_tertiary,
                         ),
+                        action_thumb(action, size=40),
                         ft.Text(
                             action,
                             expand=True,
                             size=15,
                             weight=ft.FontWeight.W_400 if is_done else ft.FontWeight.W_600,
-                            color=SHELL_TEXT_SECONDARY if is_done else SHELL_TEXT,
+                            color=sc.text_secondary if is_done else sc.text,
                         ),
                         *(
-                            [ft.Text(target, size=12, color=SHELL_TEXT_SECONDARY)]
+                            [ft.Text(target, size=12, color=sc.text_secondary)]
                             if target
                             else []
                         ),
@@ -234,7 +231,7 @@ class HomeView(ft.Container):
                             []
                             if is_done
                             else [
-                                ft.Icon(ft.Icons.CHEVRON_RIGHT, size=18, color=SHELL_ACCENT),
+                                ft.Icon(ft.Icons.CHEVRON_RIGHT, size=18, color=sc.accent),
                             ]
                         ),
                     ],
@@ -250,36 +247,52 @@ class HomeView(ft.Container):
             else (f"继续训练 · {next_action}" if continue_training else "开始训练")
         )
 
+        track = ft.Container(
+            height=4,
+            expand=True,
+            bgcolor=sc.surface_muted,
+            border_radius=999,
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            content=ft.Row(
+                [
+                    ft.Container(
+                        width=max(4.0, progress * 280),
+                        height=4,
+                        bgcolor=sc.accent,
+                        border_radius=999,
+                        animate=ft.Animation(prog_ms, ft.AnimationCurve.EASE_OUT_CUBIC)
+                        if prog_ms
+                        else None,
+                    )
+                ],
+                spacing=0,
+            ),
+        )
+
         today_card = matte_card(
             ft.Column(
                 [
                     ft.Row(
                         [
-                            ft.Text("今日训练", size=16, weight=ft.FontWeight.W_600, color=SHELL_TEXT),
+                            ft.Text("今日训练", size=16, weight=ft.FontWeight.W_600, color=sc.text),
                             ft.Container(expand=True),
                             ft.TextButton(
                                 "编辑",
-                                style=ft.ButtonStyle(color=SHELL_ACCENT),
+                                style=ft.ButtonStyle(color=sc.accent),
                                 on_click=self._edit_plan,
                             ),
                             ft.Text(
                                 f"{percent}%",
                                 size=20,
                                 weight=ft.FontWeight.W_700,
-                                color=SHELL_ACCENT,
+                                color=sc.accent,
                             ),
                         ],
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
-                    ft.ProgressBar(
-                        value=progress,
-                        color=SHELL_ACCENT,
-                        bgcolor=SHELL_SURFACE_MUTED,
-                        bar_height=4,
-                        border_radius=999,
-                    ),
+                    track,
                     *plan_rows,
-                    ft.Divider(height=1, color=SHELL_DIVIDER),
+                    ft.Divider(height=1, color=sc.divider),
                     ft.Row(
                         [
                             self._mini_stat("时长", str(stats["durationMinutes"]), "分钟"),
@@ -287,15 +300,15 @@ class HomeView(ft.Container):
                                 "消耗",
                                 str(stats["todayCalories"]),
                                 "千卡",
-                                value_color=SHELL_CALORIE,
+                                value_color=sc.calorie,
                             ),
                             self._mini_stat("本周", str(week_count), "次"),
                         ]
                     ),
                     ft.FilledButton(
                         cta_label,
-                        bgcolor=SHELL_ACCENT,
-                        color=SHELL_ON_CTA,
+                        bgcolor=sc.accent,
+                        color=sc.on_cta,
                         height=48,
                         style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=999)),
                         on_click=lambda e: self._start_plan() if plan else self._edit_plan(),
@@ -327,31 +340,25 @@ class HomeView(ft.Container):
 
         featured_cards: list[ft.Control] = []
         for w in recommended:
-            featured_cards.append(
-                matte_card(
-                    ft.Column(
-                        [
-                            ft.Container(
-                                height=88,
-                                border_radius=12,
-                                bgcolor=SHELL_SURFACE_MUTED,
-                                alignment=ft.Alignment.CENTER,
-                                content=ft.Icon(ft.Icons.FITNESS_CENTER, color=SHELL_ACCENT),
-                            ),
-                            ft.Text(w.name, weight=ft.FontWeight.W_600, color=SHELL_TEXT, size=14),
-                            ft.Text(
-                                f"{w.duration} 分钟 · {w.difficulty}",
-                                size=12,
-                                color=SHELL_TEXT_SECONDARY,
-                            ),
-                        ],
-                        spacing=8,
-                        tight=True,
-                    ),
-                    padding=12,
-                )
+            card = matte_card(
+                ft.Column(
+                    [
+                        course_cover(exercise=w, height=88, border_radius=12),
+                        ft.Text(w.name, weight=ft.FontWeight.W_600, color=sc.text, size=14),
+                        ft.Text(
+                            f"{w.duration} 分钟 · {w.difficulty}",
+                            size=12,
+                            color=sc.text_secondary,
+                        ),
+                    ],
+                    spacing=8,
+                    tight=True,
+                ),
+                padding=12,
             )
-            featured_cards[-1].width = 160
+            card.width = 160
+            card.on_click = lambda e, c=w: self._open_course(c)
+            featured_cards.append(card)
 
         children.append(
             ft.Container(
@@ -362,7 +369,7 @@ class HomeView(ft.Container):
                     scroll=ft.ScrollMode.AUTO,
                 )
                 if featured_cards
-                else ft.Text("暂时没有推荐", color=SHELL_TEXT_SECONDARY),
+                else ft.Text("暂时没有推荐", color=sc.text_secondary),
                 padding=ft.Padding.symmetric(horizontal=20),
             )
         )
@@ -379,16 +386,17 @@ class HomeView(ft.Container):
             target = self._svc.get_quick_target(name)
             chips.append(
                 ft.Container(
-                    bgcolor=SHELL_SURFACE,
-                    border=ft.Border.all(1, SHELL_BORDER),
+                    bgcolor=sc.surface,
+                    border=ft.Border.all(1, sc.border),
                     border_radius=999,
                     padding=ft.Padding.symmetric(horizontal=14, vertical=10),
                     on_click=lambda e, a=name: self.on_start_training(a),
                     content=ft.Row(
                         [
-                            ft.Text(name, size=14, weight=ft.FontWeight.W_600, color=SHELL_TEXT),
+                            action_thumb(name, size=28),
+                            ft.Text(name, size=14, weight=ft.FontWeight.W_600, color=sc.text),
                             *(
-                                [ft.Text(target, size=12, color=SHELL_TEXT_SECONDARY)]
+                                [ft.Text(target, size=12, color=sc.text_secondary)]
                                 if target
                                 else []
                             ),
@@ -421,20 +429,21 @@ class HomeView(ft.Container):
         *,
         value_color: str | None = None,
     ) -> ft.Control:
+        sc = ShellColors
         return ft.Container(
             expand=True,
             content=ft.Column(
                 [
-                    ft.Text(label, size=12, color=SHELL_TEXT_SECONDARY),
+                    ft.Text(label, size=12, color=sc.text_secondary),
                     ft.Row(
                         [
                             ft.Text(
                                 value,
                                 size=20,
                                 weight=ft.FontWeight.W_700,
-                                color=value_color or SHELL_TEXT,
+                                color=value_color or sc.text,
                             ),
-                            ft.Text(unit, size=12, color=SHELL_TEXT_SECONDARY),
+                            ft.Text(unit, size=12, color=sc.text_secondary),
                         ],
                         spacing=4,
                         tight=True,

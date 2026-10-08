@@ -17,13 +17,15 @@ def draw_pose_overlay(
     frame_bgr: np.ndarray,
     pose: PoseResult,
     *,
+    # Flutter PoseOverlay cyan bones (BGR).
     line_color: tuple[int, int, int] = (230, 225, 92),
-    point_color: tuple[int, int, int] = (98, 214, 94),
+    point_color: tuple[int, int, int] = (230, 225, 92),
     vignette: bool = True,
 ) -> np.ndarray:
-    """Draw COCO-17 skeleton on a BGR frame, optionally with a light vignette."""
-    import cv2
+    """Draw COCO-17 skeleton on a BGR frame, optionally with a light vignette.
 
+    Uses PIL so Android (no OpenCV wheel) can still render the live preview.
+    """
     out = frame_bgr.copy()
     h, w = out.shape[:2]
 
@@ -35,15 +37,22 @@ def draw_pose_overlay(
             return int(kp.x * w), int(kp.y * h)
         return int(kp.x), int(kp.y)
 
+    # BGR -> RGB for PIL drawing, then back.
+    rgb = out[:, :, ::-1].copy()
+    img = Image.fromarray(rgb)
+    draw = ImageDraw.Draw(img)
+    line_rgb = (line_color[2], line_color[1], line_color[0])
+    point_rgb = (point_color[2], point_color[1], point_color[0])
     for a, b in POSE_SKELETON_EDGES:
         pa, pb = xy(a), xy(b)
         if pa and pb:
-            cv2.line(out, pa, pb, line_color, 2, cv2.LINE_AA)
+            draw.line([pa, pb], fill=line_rgb, width=2)
     for name in KeypointName:
         p = xy(name)
         if p:
-            cv2.circle(out, p, 4, point_color, -1, cv2.LINE_AA)
-            cv2.circle(out, p, 4, (255, 255, 255), 1, cv2.LINE_AA)
+            x, y = p
+            draw.ellipse((x - 4, y - 4, x + 4, y + 4), fill=point_rgb, outline=(255, 255, 255))
+    out = np.asarray(img)[:, :, ::-1].copy()
 
     if vignette and h > 0 and w > 0:
         yy, xx = np.ogrid[:h, :w]
@@ -58,12 +67,14 @@ def draw_pose_overlay(
 
 
 def frame_to_base64_jpg(frame_bgr: np.ndarray, quality: int = 75) -> str:
-    import cv2
-
-    ok, buf = cv2.imencode(".jpg", frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
-    if not ok:
+    """Encode BGR ndarray as JPEG base64 — PIL path (Android-safe, no cv2)."""
+    if frame_bgr is None or frame_bgr.size == 0:
         return ""
-    return base64.b64encode(buf.tobytes()).decode("ascii")
+    rgb = frame_bgr[:, :, ::-1] if frame_bgr.ndim == 3 else frame_bgr
+    img = Image.fromarray(np.ascontiguousarray(rgb))
+    bio = io.BytesIO()
+    img.save(bio, format="JPEG", quality=int(quality))
+    return base64.b64encode(bio.getvalue()).decode("ascii")
 
 
 def b64_to_src(b64: str) -> str:
@@ -87,9 +98,10 @@ def placeholder_image(
     """Return a JPEG data URI suitable for ft.Image(src=...)."""
     label = _PLACEHOLDER_TEXT if text is None else text
     img = Image.new("RGB", (width, height), (7, 10, 15))
-    draw = ImageDraw.Draw(img)
-    tw = max(8, len(label) * 7)
-    draw.text((max(8, width // 2 - tw // 2), height // 2 - 8), label, fill=(168, 176, 188))
+    if label:
+        draw = ImageDraw.Draw(img)
+        tw = max(8, len(label) * 7)
+        draw.text((max(8, width // 2 - tw // 2), height // 2 - 8), label, fill=(168, 176, 188))
     bio = io.BytesIO()
     img.save(bio, format="JPEG", quality=80)
     return b64_to_src(base64.b64encode(bio.getvalue()).decode("ascii"))

@@ -1,0 +1,129 @@
+{
+  "id": "crunch_white_mannequin",
+  "version": 1,
+  "exerciseId": "crunch",
+  "aliases": [
+    "crunch",
+    "crunches",
+    "卷腹"
+  ],
+  "view": "side",
+  "playback": "immediate",
+  "frameCount": 24,
+  "durationMs": 2200,
+  "pixelSize": {
+    "w": 240,
+    "h": 320
+  },
+  "phases": [
+    {
+      "frames": [
+        0,
+        3
+      ],
+      "name": "supine"
+    },
+    {
+      "frames": [
+        4,
+        10
+      ],
+      "name": "curl"
+    },
+    {
+      "frames": [
+        11,
+        13
+      ],
+      "name": "peak",
+      "note": "scapulae off the mat, lumbar down, torso well under sit-up range"
+    },
+    {
+      "frames": [
+        14,
+        20
+      ],
+      "name": "lower"
+    },
+    {
+      "frames": [
+        21,
+        23
+      ],
+      "name": "lie_flat"
+    }
+  ],
+  "avoid": [
+    "yanking the head",
+    "chin slamming the chest",
+    "kicking the legs",
+    "turning the curl into a sit-up"
+  ],
+  "keyframes": {
+    "supine": "frames 0-3 and 21-23: low back and scapulae down, knees bent, feet planted",
+    "peak": "frames 11-13: ~30° thoracic curl around the lumbar pivot, neck angle unchanged, hands on the chest"
+  },
+  "audit": {
+    "supine": {
+      "thetaDeg": 0.0,
+      "torsoOffHorizontalDeg": 1.6,
+      "shoulderLiftPx": 0.0,
+      "neckFlexDeltaDeg": 0.0,
+      "chinGapPx": 19.1,
+      "lumbarY": 250.0,
+      "hipY": 250.0,
+      "knee": [
+        206.0,
+        198.0
+      ],
+      "ankle": [
+        206.0,
+        252.0
+      ]
+    },
+    "peak": {
+      "thetaDeg": 40.0,
+      "torsoOffHorizontalDeg": 28.3,
+      "shoulderLiftPx": 30.1,
+      "neckFlexDeltaDeg": 0.0,
+      "chinGapPx": 19.1,
+      "lumbarY": 250.0,
+      "hipY": 250.0,
+      "knee": [
+        206.0,
+        198.0
+      ],
+      "ankle": [
+        206.0,
+        252.0
+      ]
+    }
+  },
+  "frames": [
+    "frame_00.png",
+    "frame_01.png",
+    "frame_02.png",
+    "frame_03.png",
+    "frame_04.png",
+    "frame_05.png",
+    "frame_06.png",
+    "frame_07.png",
+    "frame_08.png",
+    "frame_09.png",
+    "frame_10.png",
+    "frame_11.png",
+    "frame_12.png",
+    "frame_13.png",
+    "frame_14.png",
+    "frame_15.png",
+    "frame_16.png",
+    "frame_17.png",
+    "frame_18.png",
+    "frame_19.png",
+    "frame_20.png",
+    "frame_21.png",
+    "frame_22.png",
+    "frame_23.png"
+  ],
+  "gifPreview": "crunch_white_mannequin.gif"
+}

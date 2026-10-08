@@ -1,0 +1,43 @@
+{
+  "id": "squat_white_mannequin",
+  "version": 3,
+  "coachValidated": true,
+  "frameCount": 24,
+  "durationMs": 2200,
+  "pixelSize": {
+    "w": 240,
+    "h": 320
+  },
+  "keyframes": {
+    "stand": "vertical stack, torso ~5°",
+    "half": "hip back+down, torso 15-30°, hip behind ankle",
+    "bottom": "thigh ~horizontal, torso 30-45°, heels down"
+  },
+  "frames": [
+    "frame_00.png",
+    "frame_01.png",
+    "frame_02.png",
+    "frame_03.png",
+    "frame_04.png",
+    "frame_05.png",
+    "frame_06.png",
+    "frame_07.png",
+    "frame_08.png",
+    "frame_09.png",
+    "frame_10.png",
+    "frame_11.png",
+    "frame_12.png",
+    "frame_13.png",
+    "frame_14.png",
+    "frame_15.png",
+    "frame_16.png",
+    "frame_17.png",
+    "frame_18.png",
+    "frame_19.png",
+    "frame_20.png",
+    "frame_21.png",
+    "frame_22.png",
+    "frame_23.png"
+  ],
+  "gifPreview": "squat_white_mannequin.gif"
+}

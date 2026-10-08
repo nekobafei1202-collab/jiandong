@@ -1,5 +1,8 @@
+"""OpenCV camera → RTMPose (preferred) / MediaPipe detect with FPS throttle."""
+
 from __future__ import annotations
 
+import sys
 import threading
 import time
 from collections.abc import Callable
@@ -7,12 +10,30 @@ from datetime import datetime
 
 import numpy as np
 
-from jiandong_ai.ai.pose.mediapipe_detector import MediaPipePoseDetector
 from jiandong_ai.ai.pose.pose_result import PoseResult
+from jiandong_ai.ai.pose.rtmpose_detector import RtmPoseDetector
+
+
+def _make_detector():
+    det = RtmPoseDetector()
+    if det.available:
+        return det
+    try:
+        from jiandong_ai.ai.pose.mediapipe_detector import MediaPipePoseDetector
+
+        fallback = MediaPipePoseDetector()
+        if fallback.available:
+            return fallback
+        # Prefer showing RTMPose error if both fail.
+        if det.init_error:
+            return det
+        return fallback
+    except Exception:
+        return det
 
 
 class LivePoseSession:
-    """OpenCV camera → MediaPipe detect with FPS throttle & busy-skip."""
+    """Desktop webcam session. Android uses AndroidBridgePoseSession instead."""
 
     def __init__(
         self,
@@ -24,10 +45,11 @@ class LivePoseSession:
         self.camera_index = camera_index
         self.max_infer_fps = max_infer_fps
         self.is_front_camera = is_front_camera
-        self._detector = MediaPipePoseDetector()
+        self._detector = _make_detector()
         self._cap = None
         self._thread: threading.Thread | None = None
         self._running = False
+        self._paused = False
         self._busy = False
         self._last_infer = 0.0
         self._on_frame: Callable[[np.ndarray, PoseResult], None] | None = None
@@ -37,35 +59,43 @@ class LivePoseSession:
 
     @property
     def detector_available(self) -> bool:
-        return self._detector.available
+        return bool(getattr(self._detector, "available", False))
 
     @property
     def detector_error(self) -> str | None:
-        return self._detector.init_error
+        return getattr(self._detector, "init_error", None)
 
     def set_listener(self, cb: Callable[[np.ndarray, PoseResult], None] | None) -> None:
         self._on_frame = cb
 
     def start(self) -> bool:
-        if self._running:
+        if self._running and not self._paused:
             return True
         try:
             import cv2
 
-            self._cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
-            if not self._cap.isOpened():
-                self._cap = cv2.VideoCapture(self.camera_index)
-            if not self._cap.isOpened():
-                return False
+            if self._cap is None or not self._cap.isOpened():
+                # CAP_DSHOW is Windows-only; other platforms use default backend.
+                if sys.platform.startswith("win"):
+                    self._cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
+                    if not self._cap.isOpened():
+                        self._cap = cv2.VideoCapture(self.camera_index)
+                else:
+                    self._cap = cv2.VideoCapture(self.camera_index)
+                if not self._cap.isOpened():
+                    return False
         except Exception:
             return False
+        self._paused = False
         self._running = True
-        self._thread = threading.Thread(target=self._loop, daemon=True)
-        self._thread.start()
+        if self._thread is None or not self._thread.is_alive():
+            self._thread = threading.Thread(target=self._loop, daemon=True)
+            self._thread.start()
         return True
 
     def stop(self) -> None:
         self._running = False
+        self._paused = False
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=1.5)
         self._thread = None
@@ -74,19 +104,21 @@ class LivePoseSession:
             self._cap = None
 
     def switch_camera(self) -> None:
+        was = self._running and not self._paused
         self.stop()
         self.is_front_camera = not self.is_front_camera
-        # Simple toggle between 0/1 for desktop webcams.
         self.camera_index = 1 if self.camera_index == 0 else 0
-        self.start()
+        if was:
+            self.start()
 
     def pause(self) -> None:
-        self._running = False
+        self._paused = True
 
     def resume(self) -> None:
         if self._cap is None:
             self.start()
         else:
+            self._paused = False
             self._running = True
             if self._thread is None or not self._thread.is_alive():
                 self._thread = threading.Thread(target=self._loop, daemon=True)
@@ -101,6 +133,9 @@ class LivePoseSession:
 
         min_interval = 1.0 / max(1.0, self.max_infer_fps)
         while self._running and self._cap is not None:
+            if self._paused:
+                time.sleep(0.05)
+                continue
             ok, frame = self._cap.read()
             if not ok or frame is None:
                 time.sleep(0.03)

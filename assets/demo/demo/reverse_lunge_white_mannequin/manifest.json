@@ -1,0 +1,141 @@
+{
+  "id": "reverse_lunge_white_mannequin",
+  "version": 1,
+  "exerciseId": "reverse_lunge",
+  "aliases": [
+    "reverse_lunge",
+    "lunge",
+    "lunge_squat",
+    "弓步蹲",
+    "弓步"
+  ],
+  "view": "side",
+  "playback": "immediate",
+  "frameCount": 24,
+  "durationMs": 2200,
+  "pixelSize": {
+    "w": 240,
+    "h": 320
+  },
+  "phases": [
+    {
+      "frames": [
+        0,
+        3
+      ],
+      "name": "stand",
+      "note": "feet together, torso upright"
+    },
+    {
+      "frames": [
+        4,
+        8
+      ],
+      "name": "step_back",
+      "note": "rear foot travels back on the same ground line"
+    },
+    {
+      "frames": [
+        9,
+        12
+      ],
+      "name": "bottom",
+      "note": "front knee 80–100° over the ankle, rear knee near the floor, torso lean < 12°"
+    },
+    {
+      "frames": [
+        13,
+        19
+      ],
+      "name": "drive_return"
+    },
+    {
+      "frames": [
+        20,
+        23
+      ],
+      "name": "stand"
+    }
+  ],
+  "avoid": [
+    "torso collapse forward",
+    "front knee caving in",
+    "slamming rear knee",
+    "stance too short"
+  ],
+  "keyframes": {
+    "stand": "frames 0-3 and 20-23: hips stacked over the feet, torso lean ~4°",
+    "bottom": "frames 9-12: front thigh horizontal, front shin vertical, rear knee hovers, long stance"
+  },
+  "audit": {
+    "bottom": {
+      "depth": 1.0,
+      "frontKneeDeg": 90.0,
+      "rearKneeDeg": 123.3,
+      "torsoLeanDeg": 7.5,
+      "rearKneeClearancePx": 9.9,
+      "stancePx": 158.0,
+      "frontKneeOverAnklePx": 0.0,
+      "hip": [
+        124.0,
+        228.0
+      ],
+      "frontKnee": [
+        188.0,
+        228.0
+      ],
+      "rearKnee": [
+        88.0,
+        280.9
+      ]
+    },
+    "stand": {
+      "depth": 0.0,
+      "frontKneeDeg": 180.0,
+      "rearKneeDeg": 180.0,
+      "torsoLeanDeg": 4.0,
+      "rearKneeClearancePx": 62.8,
+      "stancePx": 2.0,
+      "frontKneeOverAnklePx": 0.0,
+      "hip": [
+        188.0,
+        164.0
+      ],
+      "frontKnee": [
+        188.0,
+        228.0
+      ],
+      "rearKnee": [
+        187.0,
+        228.0
+      ]
+    }
+  },
+  "frames": [
+    "frame_00.png",
+    "frame_01.png",
+    "frame_02.png",
+    "frame_03.png",
+    "frame_04.png",
+    "frame_05.png",
+    "frame_06.png",
+    "frame_07.png",
+    "frame_08.png",
+    "frame_09.png",
+    "frame_10.png",
+    "frame_11.png",
+    "frame_12.png",
+    "frame_13.png",
+    "frame_14.png",
+    "frame_15.png",
+    "frame_16.png",
+    "frame_17.png",
+    "frame_18.png",
+    "frame_19.png",
+    "frame_20.png",
+    "frame_21.png",
+    "frame_22.png",
+    "frame_23.png"
+  ],
+  "gifPreview": "reverse_lunge_white_mannequin.gif"
+}

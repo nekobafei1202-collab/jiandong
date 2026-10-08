@@ -1,40 +1,34 @@
-# Android Pose Bridge
+# Android Pose Bridge (Good-GYM RTMPose ONNX)
 
-`pip install mediapipe` 无法直接打进 Android APK。真机姿态检测走本目录桥接：
+True-device pose uses the **same lightweight ONNX** as desktop ([Good-GYM](https://github.com/yo-WASSUP/Good-GYM), MIT):
 
-1. Flet/Flutter 侧用 **MediaPipe Pose Landmarker**（BlazePose）推理
-2. 将 33 点映射为 **COCO-17**（与原版 `real_pose_detector.dart` 一致）
-3. 通过 method channel / Flet 扩展把关键点 JSON 交给 Python `TrainingPipeline.process_pose`
+- `yolox_nano_…onnx` (bundled; person-det optional on device)
+- `rtmpose-t_…onnx` via **onnxruntime-android**
 
-## COCO-17 映射
+CameraX writes:
 
-与原版 ML Kit 映射相同（按名称 1:1）：
+- `files/jiandong_pose/latest.jpg`
+- `files/jiandong_pose/latest.json` (COCO-17)
+- `files/jiandong_pose/cmd.txt` — `start_front` / `start_back` / `stop` / `pause`
 
-nose, leftEye, rightEye, leftEar, rightEar,
-leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist,
-leftHip, rightHip, leftKnee, rightKnee, leftAnkle, rightAnkle
+Python [`AndroidBridgePoseSession`](../jiandong_ai/ai/session/android_bridge_session.py) polls these files.
 
-## 权限
-
-`AndroidManifest.xml` 需声明：
-
-```xml
-<uses-permission android:name="android.permission.CAMERA" />
-```
-
-## 打包
-
-在仓库根目录（需本机安装 Flutter SDK，Flet 会调用）：
+## Build
 
 ```bash
-# 1. 确保 Python 依赖与模型就绪
-pip install -r requirements.txt
-python -m jiandong_ai.scripts.download_model
+# 1) models
+python -m jiandong_ai.scripts.download_rtmpose_models
 
-# 2. 构建 APK（首次较慢）
-flet build apk
+# 2) generate / refresh Flet Flutter shell (first time)
+flet build apk --permissions camera --skip-flutter-doctor --yes
+
+# 3) inject Kotlin + assets + gradle deps
+python -m jiandong_ai.scripts.prepare_android_bridge
+
+# 4) rebuild APK (re-run prepare after a clean flutter regen)
+flet build apk --permissions camera --skip-flutter-doctor --yes
 ```
 
-产物一般在 `build/apk/`。安装到真机后授予相机权限，训练页走原生 Pose Landmarker → `pose_channel.pose_from_bridge_payload` → `TrainingPipeline.process_pose`。
+## Permissions
 
-开发阶段请先用 Windows + 摄像头验收识别逻辑；本桥在真机打包时启用。
+`CAMERA` via `flet build --permissions camera`.

@@ -115,6 +115,29 @@ class ExerciseKind:
         return not cls.supports_auto_detect(id_)
 
     @classmethod
+    def is_guide_only(cls, id_: str | None) -> bool:
+        """Warmup / cooldown bookends: show in queue, no count or pose score."""
+        s = (id_ or "").strip()
+        return s in {"热身", "拉伸"} or cls._token(id_) in {
+            "warmup",
+            "warm_up",
+            "stretch",
+            "cooldown",
+            "cool_down",
+        }
+
+    @classmethod
+    def rest_seconds(cls, id_: str | None) -> int:
+        """Inter-set / inter-action rest duration for the completed exercise."""
+        if cls.is_guide_only(id_):
+            return 0
+        if cls.is_jumping_jack(id_) or cls.is_high_knees(id_):
+            return 30
+        if cls.is_plank(id_):
+            return 45
+        return 60
+
+    @classmethod
     def display_name(cls, id_: str | None) -> str:
         if id_ is None or not id_.strip():
             return cls.squat_label

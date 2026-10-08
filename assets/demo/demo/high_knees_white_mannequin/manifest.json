@@ -1,0 +1,195 @@
+{
+  "id": "high_knees_white_mannequin",
+  "version": 4,
+  "exerciseId": "high_knees",
+  "aliases": [
+    "high_knees",
+    "high_knee",
+    "高抬腿"
+  ],
+  "view": "side",
+  "playback": "immediate",
+  "frameCount": 24,
+  "durationMs": 2200,
+  "pixelSize": {
+    "w": 240,
+    "h": 320
+  },
+  "phases": [
+    {
+      "frames": [
+        0,
+        1
+      ],
+      "name": "left_toe_off",
+      "note": "left knee starts rising, right leg supports with a slight bend, hop near 4px"
+    },
+    {
+      "frames": [
+        2,
+        4
+      ],
+      "name": "left_drive"
+    },
+    {
+      "frames": [
+        5,
+        7
+      ],
+      "name": "left_peak",
+      "note": "side view, facing right: left thigh ~horizontal, right arm forward, left arm back, elbow ~90°"
+    },
+    {
+      "frames": [
+        8,
+        9
+      ],
+      "name": "left_lower"
+    },
+    {
+      "frames": [
+        10,
+        11
+      ],
+      "name": "left_landing_cushion",
+      "note": "left knee softens as the foot comes down"
+    },
+    {
+      "frames": [
+        12,
+        16
+      ],
+      "name": "right_drive",
+      "note": "mirror of frames 0–4"
+    },
+    {
+      "frames": [
+        17,
+        19
+      ],
+      "name": "right_peak",
+      "note": "right thigh ~horizontal, left arm forward, right arm back"
+    },
+    {
+      "frames": [
+        20,
+        23
+      ],
+      "name": "right_lower_and_landing",
+      "note": "cushion, then the curve continues into frame 0"
+    }
+  ],
+  "avoid": [
+    "front view or 3/4 view",
+    "2-frame flash cuts",
+    "side kicks",
+    "same-side arm swing",
+    "both arms swinging the same way",
+    "leaning back",
+    "knee well below hip height at the peak (marching)",
+    "locked support knee"
+  ],
+  "keyframes": {
+    "left_peak": "frame 6, side view facing right: left thigh forward, right hand in front, left hand behind",
+    "right_peak": "frame 18: right thigh forward, left hand in front, right hand behind",
+    "landing": "frames 10–11 and 22–23: extra knee flexion (cushion), hop back toward 4px"
+  },
+  "audit": {
+    "left_peak": {
+      "view": "side",
+      "phase": "left_step",
+      "hopPx": 9.5,
+      "torsoLeanDeg": 6.0,
+      "leftThighDeg": 88.0,
+      "rightThighDeg": 18.0,
+      "leftKneeFlex": 92.0,
+      "rightKneeFlex": 22.0,
+      "leftCushion": 0.0,
+      "rightCushion": 0.0,
+      "leftElbowDeg": 90.0,
+      "rightElbowDeg": 90.0,
+      "leftHandForwardPx": -22.4,
+      "rightHandForwardPx": 36.46,
+      "leftKneeBelowHipPx": 1.68,
+      "rightKneeBelowHipPx": 45.65,
+      "leftKneeForwardPx": 47.97,
+      "rightKneeForwardPx": 14.83,
+      "hipSplitPx": 3.0,
+      "leftShinHangs": true,
+      "rightShinHangs": true
+    },
+    "right_peak": {
+      "view": "side",
+      "phase": "right_step",
+      "hopPx": 9.5,
+      "torsoLeanDeg": 6.0,
+      "leftThighDeg": 18.0,
+      "rightThighDeg": 88.0,
+      "leftKneeFlex": 22.0,
+      "rightKneeFlex": 92.0,
+      "leftCushion": 0.0,
+      "rightCushion": 0.0,
+      "leftElbowDeg": 90.0,
+      "rightElbowDeg": 90.0,
+      "leftHandForwardPx": 36.46,
+      "rightHandForwardPx": -22.4,
+      "leftKneeBelowHipPx": 45.65,
+      "rightKneeBelowHipPx": 1.68,
+      "leftKneeForwardPx": 14.83,
+      "rightKneeForwardPx": 47.97,
+      "hipSplitPx": 3.0,
+      "leftShinHangs": true,
+      "rightShinHangs": true
+    },
+    "landing": {
+      "view": "side",
+      "phase": "left_step",
+      "hopPx": 5.42,
+      "torsoLeanDeg": 6.0,
+      "leftThighDeg": 36.12,
+      "rightThighDeg": 18.0,
+      "leftKneeFlex": 47.53,
+      "rightKneeFlex": 22.0,
+      "leftCushion": 7.41,
+      "rightCushion": 0.0,
+      "leftElbowDeg": 90.0,
+      "rightElbowDeg": 90.0,
+      "leftHandForwardPx": 8.3,
+      "rightHandForwardPx": 27.49,
+      "leftKneeBelowHipPx": 38.77,
+      "rightKneeBelowHipPx": 45.65,
+      "leftKneeForwardPx": 28.29,
+      "rightKneeForwardPx": 14.83,
+      "hipSplitPx": 3.0,
+      "leftShinHangs": true,
+      "rightShinHangs": true
+    }
+  },
+  "frames": [
+    "frame_00.png",
+    "frame_01.png",
+    "frame_02.png",
+    "frame_03.png",
+    "frame_04.png",
+    "frame_05.png",
+    "frame_06.png",
+    "frame_07.png",
+    "frame_08.png",
+    "frame_09.png",
+    "frame_10.png",
+    "frame_11.png",
+    "frame_12.png",
+    "frame_13.png",
+    "frame_14.png",
+    "frame_15.png",
+    "frame_16.png",
+    "frame_17.png",
+    "frame_18.png",
+    "frame_19.png",
+    "frame_20.png",
+    "frame_21.png",
+    "frame_22.png",
+    "frame_23.png"
+  ],
+  "gifPreview": "high_knees_white_mannequin.gif"
+}

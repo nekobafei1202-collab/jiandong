@@ -1,0 +1,115 @@
+{
+  "id": "jumping_jack_white_mannequin",
+  "version": 1,
+  "exerciseId": "jumping_jack",
+  "aliases": [
+    "jumping_jack",
+    "jumping_jacks",
+    "开合跳"
+  ],
+  "view": "front",
+  "playback": "immediate",
+  "frameCount": 24,
+  "durationMs": 2200,
+  "pixelSize": {
+    "w": 240,
+    "h": 320
+  },
+  "phases": [
+    {
+      "frames": [
+        0,
+        0
+      ],
+      "name": "closed",
+      "note": "feet together, arms at the sides"
+    },
+    {
+      "frames": [
+        1,
+        10
+      ],
+      "name": "open_up"
+    },
+    {
+      "frames": [
+        11,
+        12
+      ],
+      "name": "open_peak",
+      "note": "feet wider than shoulders, arms near the ears"
+    },
+    {
+      "frames": [
+        13,
+        22
+      ],
+      "name": "close_down"
+    },
+    {
+      "frames": [
+        23,
+        23
+      ],
+      "name": "closed"
+    }
+  ],
+  "avoid": [
+    "knee cave-in",
+    "excessive lumbar arch",
+    "arms slamming onto the head"
+  ],
+  "keyframes": {
+    "closed": "frames 0 and 23: feet together, arms hanging",
+    "open": "frames 11-12: abduction ~156° (not 180), soft elbows, small hop, knees over the feet"
+  },
+  "audit": {
+    "closed": {
+      "open": 0.0,
+      "hopPx": 0.0,
+      "footSpreadPx": 12.0,
+      "shoulderWidthPx": 40.0,
+      "abductionDeg": 8.0,
+      "kneeCaveInPx": 0.0,
+      "handHeadGapPx": 81.0,
+      "torsoOffsetXPx": 0.0
+    },
+    "open": {
+      "open": 0.998,
+      "hopPx": 12.0,
+      "footSpreadPx": 71.9,
+      "shoulderWidthPx": 40.0,
+      "abductionDeg": 167.6,
+      "kneeCaveInPx": 0.0,
+      "handHeadGapPx": 21.6,
+      "torsoOffsetXPx": 0.0
+    }
+  },
+  "frames": [
+    "frame_00.png",
+    "frame_01.png",
+    "frame_02.png",
+    "frame_03.png",
+    "frame_04.png",
+    "frame_05.png",
+    "frame_06.png",
+    "frame_07.png",
+    "frame_08.png",
+    "frame_09.png",
+    "frame_10.png",
+    "frame_11.png",
+    "frame_12.png",
+    "frame_13.png",
+    "frame_14.png",
+    "frame_15.png",
+    "frame_16.png",
+    "frame_17.png",
+    "frame_18.png",
+    "frame_19.png",
+    "frame_20.png",
+    "frame_21.png",
+    "frame_22.png",
+    "frame_23.png"
+  ],
+  "gifPreview": "jumping_jack_white_mannequin.gif"
+}

@@ -12,5 +12,5 @@ _bridge = BridgePoseDetector()
 
 
 def pose_from_bridge_payload(payload: dict) -> PoseResult:
-    """Convert native MediaPipe Landmarker JSON into PoseResult."""
+    """Convert native bridge COCO-17 JSON (RTMPose ORT) into PoseResult."""
     return _bridge.detect(payload, timestamp=datetime.now())

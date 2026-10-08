@@ -124,11 +124,21 @@ class CourseActionQueue:
 
     @property
     def total_reps(self) -> int:
-        return sum(r.reps for r in self._completed)
+        return sum(
+            r.reps
+            for r in self._completed
+            if not ExerciseKind.is_guide_only(r.action_name)
+        )
 
     @property
     def average_score(self) -> int | None:
-        scored = [r.avg_score for r in self._completed if r.avg_score and r.avg_score > 0]
+        scored = [
+            r.avg_score
+            for r in self._completed
+            if r.avg_score
+            and r.avg_score > 0
+            and not ExerciseKind.is_guide_only(r.action_name)
+        ]
         if not scored:
             return None
         return round(sum(scored) / len(scored))
@@ -183,6 +193,16 @@ class CourseActionQueue:
     ) -> None:
         self._store_current(reps=reps, avg_score=avg_score, manual=manual)
 
+    def peek_last_completed(self) -> CourseActionResult | None:
+        if not self._completed:
+            return None
+        return self._completed[-1]
+
+    def pop_last_completed(self) -> CourseActionResult | None:
+        if not self._completed:
+            return None
+        return self._completed.pop()
+
     def _store_current(
         self,
         *,
@@ -190,12 +210,15 @@ class CourseActionQueue:
         avg_score: int | None = None,
         manual: bool | None = None,
     ) -> None:
+        guide = ExerciseKind.is_guide_only(self.current)
         self._completed.append(
             CourseActionResult(
                 action_name=self.current_display_name,
-                reps=reps,
-                avg_score=avg_score,
-                manual=self.current_is_manual if manual is None else manual,
+                reps=0 if guide else reps,
+                avg_score=None if guide else avg_score,
+                manual=True if guide else (
+                    self.current_is_manual if manual is None else manual
+                ),
             )
         )
         self._visit_recorded = True

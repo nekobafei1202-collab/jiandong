@@ -6,13 +6,18 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "flet>=0.25.0",
-  "opencv-python>=4.8.0",
   "numpy>=1.26.0",
-  "mediapipe>=0.10.14",
   "Pillow>=10.0.0",
 ]
 
 [project.optional-dependencies]
+# Windows/desktop camera + RTMPose (onnxruntime/rtmlib; MediaPipe optional fallback)
+desktop = [
+  "opencv-python>=4.8.0",
+  "onnxruntime>=1.16.0",
+  "rtmlib",
+  "mediapipe>=0.10.14",
+]
 dev = ["pytest>=8.0.0"]
 
 [project.scripts]
@@ -21,3 +26,10 @@ jiandong-ai = "jiandong_ai.main:main"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.flet.app]
+include = ["assets", "models", "android_bridge"]
+
+# Keep jni aligned with jni_flutter (expects ^1.1.0)
+[tool.flet.flutter.pubspec.dependency_overrides]
+jni = "1.1.0"

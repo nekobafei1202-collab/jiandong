@@ -4,17 +4,7 @@ from datetime import datetime
 
 import flet as ft
 
-from jiandong_ai.app.theme import (
-    SHELL_ACCENT,
-    SHELL_BORDER,
-    SHELL_CALORIE,
-    SHELL_CANVAS,
-    SHELL_DIVIDER,
-    SHELL_SURFACE,
-    SHELL_TEXT,
-    SHELL_TEXT_SECONDARY,
-    SHELL_TEXT_TERTIARY,
-)
+from jiandong_ai.app.theme import ShellColors
 from jiandong_ai.services.mock_service import MockService
 from jiandong_ai.widgets.matte_card import matte_card
 from jiandong_ai.widgets.section_header import section_header
@@ -22,7 +12,7 @@ from jiandong_ai.widgets.section_header import section_header
 
 class RecordsView(ft.Container):
     def __init__(self, page: ft.Page) -> None:
-        super().__init__(expand=True, bgcolor=SHELL_CANVAS, padding=0)
+        super().__init__(expand=True, bgcolor=ShellColors.canvas, padding=0)
         self._host = page
         self._svc = MockService.instance()
         self._list = ft.Column(spacing=0, scroll=ft.ScrollMode.AUTO, expand=True)
@@ -47,6 +37,8 @@ class RecordsView(ft.Container):
         return f"{d.year}年{d.month}月{d.day}日"
 
     def refresh(self) -> None:
+        sc = ShellColors
+        self.bgcolor = sc.canvas
         stats = self._svc.get_today_stats()
         weekly = self._svc.get_weekly_stats()
         history = self._svc.get_training_history()
@@ -65,10 +57,10 @@ class RecordsView(ft.Container):
                             ft.Container(
                                 width=22,
                                 height=h,
-                                bgcolor=SHELL_ACCENT if w.minutes else SHELL_BORDER,
+                                bgcolor=sc.accent if w.minutes else sc.border,
                                 border_radius=6,
                             ),
-                            ft.Text(w.label, size=11, color=SHELL_TEXT_SECONDARY),
+                            ft.Text(w.label, size=11, color=sc.text_secondary),
                         ],
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         spacing=6,
@@ -84,8 +76,8 @@ class RecordsView(ft.Container):
                     alignment=ft.Alignment.CENTER,
                     content=ft.Column(
                         [
-                            ft.Icon(ft.Icons.HISTORY, size=40, color=SHELL_TEXT_TERTIARY),
-                            ft.Text("还没有训练记录", color=SHELL_TEXT_SECONDARY),
+                            ft.Icon(ft.Icons.HISTORY, size=40, color=sc.text_tertiary),
+                            ft.Text("还没有训练记录", color=sc.text_secondary),
                         ],
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         spacing=8,
@@ -98,8 +90,8 @@ class RecordsView(ft.Container):
                 history_controls.append(
                     ft.Container(
                         margin=ft.Margin.only(bottom=10),
-                        bgcolor=SHELL_SURFACE,
-                        border=ft.Border.all(1, SHELL_BORDER),
+                        bgcolor=sc.surface,
+                        border=ft.Border.all(1, sc.border),
                         border_radius=12,
                         padding=ft.Padding.symmetric(horizontal=14, vertical=12),
                         on_click=lambda e, rec=r: self._show_detail(rec),
@@ -110,13 +102,13 @@ class RecordsView(ft.Container):
                                         ft.Text(
                                             r.exercise_name,
                                             weight=ft.FontWeight.W_600,
-                                            color=SHELL_TEXT,
+                                            color=sc.text,
                                             size=15,
                                         ),
                                         ft.Text(
                                             f"{self._day_label(r.date)} · {r.duration} 分钟",
                                             size=12,
-                                            color=SHELL_TEXT_SECONDARY,
+                                            color=sc.text_secondary,
                                         ),
                                     ],
                                     spacing=4,
@@ -127,7 +119,7 @@ class RecordsView(ft.Container):
                                     str(r.score),
                                     size=22,
                                     weight=ft.FontWeight.BOLD,
-                                    color=SHELL_ACCENT,
+                                    color=sc.accent,
                                 ),
                             ],
                             vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -140,21 +132,21 @@ class RecordsView(ft.Container):
                 padding=ft.Padding.only(left=20, top=20, right=20, bottom=0),
                 content=ft.Column(
                     [
-                        ft.Text("记录", size=22, weight=ft.FontWeight.W_700, color=SHELL_TEXT),
+                        ft.Text("记录", size=22, weight=ft.FontWeight.W_700, color=sc.text),
                         ft.Container(height=24),
-                        ft.Text("今日", size=18, weight=ft.FontWeight.W_700, color=SHELL_TEXT),
+                        ft.Text("今日", size=18, weight=ft.FontWeight.W_700, color=sc.text),
                         ft.Container(height=16),
                         ft.Row(
                             [
                                 self._today_metric("时长", str(stats["durationMinutes"]), "分钟"),
-                                ft.Container(width=1, height=48, bgcolor=SHELL_DIVIDER),
+                                ft.Container(width=1, height=48, bgcolor=sc.divider),
                                 self._today_metric(
                                     "消耗",
                                     str(stats["todayCalories"]),
                                     "kcal",
-                                    value_color=SHELL_CALORIE,
+                                    value_color=sc.calorie,
                                 ),
-                                ft.Container(width=1, height=48, bgcolor=SHELL_DIVIDER),
+                                ft.Container(width=1, height=48, bgcolor=sc.divider),
                                 self._today_metric("组数", str(stats["todaySets"]), "组"),
                             ],
                             vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -170,7 +162,7 @@ class RecordsView(ft.Container):
                         ft.Text(
                             f"累计 {stats['totalHours']} 小时 · 连续 {self._svc.get_streak_days()} 天",
                             size=12,
-                            color=SHELL_TEXT_SECONDARY,
+                            color=sc.text_secondary,
                             text_align=ft.TextAlign.CENTER,
                         ),
                         ft.Container(height=32),
@@ -198,20 +190,21 @@ class RecordsView(ft.Container):
         *,
         value_color: str | None = None,
     ) -> ft.Control:
+        sc = ShellColors
         return ft.Container(
             expand=True,
             content=ft.Column(
                 [
-                    ft.Text(label, size=12, color=SHELL_TEXT_SECONDARY),
+                    ft.Text(label, size=12, color=sc.text_secondary),
                     ft.Row(
                         [
                             ft.Text(
                                 value,
                                 size=24,
                                 weight=ft.FontWeight.W_700,
-                                color=value_color or SHELL_TEXT,
+                                color=value_color or sc.text,
                             ),
-                            ft.Text(unit, size=12, color=SHELL_TEXT_SECONDARY),
+                            ft.Text(unit, size=12, color=sc.text_secondary),
                         ],
                         spacing=4,
                         tight=True,
@@ -225,6 +218,7 @@ class RecordsView(ft.Container):
         )
 
     def _show_detail(self, record) -> None:
+        sc = ShellColors
         stats_row = [
             self._sheet_stat("时长", f"{record.duration} 分钟"),
         ]
@@ -244,8 +238,8 @@ class RecordsView(ft.Container):
                     padding=ft.Padding.symmetric(vertical=6),
                     content=ft.Row(
                         [
-                            ft.Text(a.action_name, expand=True, color=SHELL_TEXT),
-                            ft.Text(detail, size=13, color=SHELL_TEXT_SECONDARY),
+                            ft.Text(a.action_name, expand=True, color=sc.text),
+                            ft.Text(detail, size=13, color=sc.text_secondary),
                         ]
                     ),
                 )
@@ -262,19 +256,19 @@ class RecordsView(ft.Container):
             review = "总体评价：先别追求次数，把每个动作做标准更重要。"
 
         dlg = ft.AlertDialog(
-            bgcolor=SHELL_SURFACE,
-            title=ft.Text(record.exercise_name),
+            bgcolor=sc.surface,
+            title=ft.Text(record.exercise_name, color=sc.text),
             content=ft.Column(
                 [
-                    ft.Text(self._full_date(record.date), size=12, color=SHELL_TEXT_SECONDARY),
+                    ft.Text(self._full_date(record.date), size=12, color=sc.text_secondary),
                     ft.Container(height=12),
                     ft.Row(stats_row, wrap=True, spacing=10),
                     *(
                         [
                             ft.Container(height=12),
-                            ft.Text("动作明细", weight=ft.FontWeight.W_600, color=SHELL_TEXT),
+                            ft.Text("动作明细", weight=ft.FontWeight.W_600, color=sc.text),
                             *action_rows,
-                            ft.Text(review, size=13, color=SHELL_ACCENT),
+                            ft.Text(review, size=13, color=sc.accent),
                         ]
                         if record.actions
                         else []
@@ -284,19 +278,25 @@ class RecordsView(ft.Container):
                 height=280,
                 scroll=ft.ScrollMode.AUTO,
             ),
-            actions=[ft.TextButton("关闭", on_click=lambda e: self._host.close(dlg))],
+            actions=[ft.TextButton("关闭", on_click=lambda e: _close_dlg())],
         )
-        self._host.open(dlg)
+
+        def _close_dlg() -> None:
+            dlg.open = False
+            dlg.update()
+
+        self._host.show_dialog(dlg)
 
     def _sheet_stat(self, label: str, value: str) -> ft.Control:
+        sc = ShellColors
         return ft.Container(
             padding=ft.Padding.symmetric(horizontal=10, vertical=8),
-            bgcolor=SHELL_CANVAS,
+            bgcolor=sc.canvas,
             border_radius=10,
             content=ft.Column(
                 [
-                    ft.Text(label, size=11, color=SHELL_TEXT_SECONDARY),
-                    ft.Text(value, size=13, weight=ft.FontWeight.W_600, color=SHELL_TEXT),
+                    ft.Text(label, size=11, color=sc.text_secondary),
+                    ft.Text(value, size=13, weight=ft.FontWeight.W_600, color=sc.text),
                 ],
                 spacing=2,
                 tight=True,

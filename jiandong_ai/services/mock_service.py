@@ -322,12 +322,15 @@ class MockService:
         avg_score = (
             round(sum(r.score for r in today) / len(today)) if today else 0
         )
+        calories = sum(
+            (r.calories if r.calories is not None else r.duration * 4) for r in today
+        )
         total_minutes = sum(r.duration for r in history)
         return {
             "durationMinutes": minutes,
             "sessionCount": len(today),
             "avgScore": avg_score,
-            "todayCalories": minutes * 4,
+            "todayCalories": calories,
             "todaySets": len(today),
             "totalHours": round(total_minutes / 60 * 10) / 10,
         }
@@ -375,36 +378,8 @@ class MockService:
     def _ensure_history(self) -> list[TrainingRecord]:
         if self._history is not None:
             return self._history
-        now = datetime.now()
-        self._history = [
-            TrainingRecord(
-                id="r_001",
-                exercise_name="下肢力量训练",
-                duration=20,
-                score=92,
-                date=datetime(now.year, now.month, now.day, 18, 20).isoformat(),
-            ),
-            TrainingRecord(
-                id="r_002",
-                exercise_name="全身训练",
-                duration=25,
-                score=89,
-                date=(
-                    datetime(now.year, now.month, now.day, 19, 10)
-                    - timedelta(days=1)
-                ).isoformat(),
-            ),
-            TrainingRecord(
-                id="r_003",
-                exercise_name="核心稳定训练",
-                duration=12,
-                score=94,
-                date=(
-                    datetime(now.year, now.month, now.day, 7, 30)
-                    - timedelta(days=2)
-                ).isoformat(),
-            ),
-        ]
+        # Start empty so history reflects real sessions only.
+        self._history = []
         return self._history
 
     def add_training_record(self, record: TrainingRecord) -> None:

@@ -1,6 +1,12 @@
+# Core (Android + Windows)
 flet>=0.25.0
-opencv-python>=4.8.0
 numpy>=1.26.0
-mediapipe>=0.10.14
 Pillow>=10.0.0
 pytest>=8.0.0
+
+# Desktop-only pose/camera (pip install -r requirements.txt still installs these on Windows)
+opencv-python>=4.8.0
+onnxruntime>=1.16.0
+rtmlib
+# Optional fallback if RTMPose models missing:
+mediapipe>=0.10.14

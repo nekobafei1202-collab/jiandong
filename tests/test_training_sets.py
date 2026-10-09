@@ -95,6 +95,12 @@ def test_compute_nav_mode_matrix():
     assert set4["next_label"] == tp._LABEL_NEXT_ACT
     assert not set4["prev_is_action"] and set4["next_is_action"]
 
+    last = tp.compute_nav_mode(
+        guide_only=False, set_index=4, has_previous=True, has_next=False
+    )
+    assert last["next_label"] == tp._LABEL_FINISH
+    assert last["can_next"] is True
+
 
 def test_queue_pop_last_completed():
     from jiandong_ai.ai.session.course_action_queue import CourseActionQueue

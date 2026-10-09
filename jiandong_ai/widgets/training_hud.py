@@ -12,8 +12,6 @@ from jiandong_ai.app.theme import (
     HUD_GLASS_STROKE,
     HUD_GREEN,
     HUD_METRIC_BLUE,
-    HUD_METRIC_ORANGE,
-    HUD_METRIC_PURPLE,
     HUD_RECORD_RED,
     HUD_SURFACE_MUTED,
     HUD_TEXT,
@@ -643,243 +641,416 @@ def build_bottom_controls(
     return ft.Column(controls, spacing=0, tight=True)
 
 
-def _metric_cell(*, icon, icon_color: str, value: str, label: str) -> ft.Control:
+# ---- Finished summary (light "report card" theme, page-local constants) ----
+_SUM_BG = "#F5F7FA"
+_SUM_CARD = "#FFFFFF"
+_SUM_BORDER = "#E5E7EB"
+_SUM_TEXT = "#111827"
+_SUM_TEXT2 = "#6B7280"
+_SUM_GREEN = "#16A34A"
+_SUM_GREEN_BG = "#F0FDF4"
+_SUM_ORANGE = "#F97316"
+_SUM_RED = "#EF4444"
+_SUM_BLUE = "#1D4ED8"
+
+_ACTION_ICON_ASSETS = {
+    "squat": "assets/actions/squat.png",
+    "pushup": "assets/actions/pushup.png",
+    "reverse_lunge": "assets/actions/lunge.png",
+    "plank": "assets/actions/plank.png",
+    "jumping_jack": "assets/actions/cardio.png",
+    "crunch": "assets/actions/core.png",
+    "high_knees": "assets/actions/high_knees.png",
+    "glute_bridge": "assets/actions/lower_body.png",
+}
+
+
+def _action_icon_asset(action_name: str) -> str | None:
+    from jiandong_ai.ai.action.exercise_kind import ExerciseKind
+    from jiandong_ai.widgets.course_cover import asset_src
+
+    for key, src in _ACTION_ICON_ASSETS.items():
+        if getattr(ExerciseKind, f"is_{key}")(action_name):
+            return asset_src(src)
+    return None
+
+
+def posture_encouragement(pct: int) -> str:
+    if pct >= 90:
+        return "非常棒！"
+    if pct >= 70:
+        return "很不错！"
+    return "继续加油！"
+
+
+def build_session_summary_text(actions: list[dict]) -> str:
+    """Whole-session summary: praise best posture, flag the weakest as next focus."""
+    done = [a for a in actions if a.get("name")]
+    if not done:
+        return "本次训练已完成，节奏稳定，继续保持。"
+    names = "、".join(f"「{a['name']}」" for a in done)
+    total = sum(int(a.get("reps") or 0) for a in done)
+    base = f"本次训练完成了{names}"
+    if total > 0:
+        base += f"，累计 {total} 次。"
+    else:
+        base += "。"
+    scored = [a for a in done if a.get("avg_score")]
+    if not scored:
+        return base + "本次暂无姿势评分，保持当前节奏，稳步提升。"
+    best = max(scored, key=lambda a: a["avg_score"])
+    worst = min(scored, key=lambda a: a["avg_score"])
+    text = base + f"「{best['name']}」姿势最标准（{best['avg_score']}%），值得表扬；"
+    if best is worst:
+        return text + "整体表现均衡，继续加油。"
+    return text + (
+        f"「{worst['name']}」是下次重点（{worst['avg_score']}%），"
+        "优先保证姿势幅度，再逐步提升次数。"
+    )
+
+
+def _sum_card(content: ft.Control, *, padding: float = 16) -> ft.Container:
+    return ft.Container(
+        bgcolor=_SUM_CARD,
+        border_radius=18,
+        border=ft.Border.all(1, _SUM_BORDER),
+        padding=ft.Padding.all(padding),
+        content=content,
+    )
+
+
+def _stat_cell(
+    *,
+    value: str,
+    unit: str,
+    label: str,
+    sub: str,
+    value_color: str = _SUM_TEXT,
+    sub_color: str = _SUM_TEXT2,
+) -> ft.Control:
     return ft.Container(
         expand=True,
-        padding=ft.Padding.symmetric(vertical=8),
         content=ft.Column(
             [
-                ft.Icon(icon, color=icon_color, size=22),
-                ft.Text(value, size=20, weight=ft.FontWeight.W_800, color=HUD_TEXT, text_align=ft.TextAlign.CENTER),
-                ft.Text(label, size=12, color=HUD_TEXT_SECONDARY),
+                ft.Row(
+                    [
+                        ft.Text(value, size=28, weight=ft.FontWeight.W_800, color=value_color),
+                        ft.Text(unit, size=12, weight=ft.FontWeight.W_600, color=_SUM_TEXT2),
+                    ],
+                    spacing=2,
+                    tight=True,
+                    vertical_alignment=ft.CrossAxisAlignment.END,
+                ),
+                ft.Text(label, size=12, color=_SUM_TEXT2),
+                ft.Text(sub, size=11, color=sub_color, max_lines=1,
+                        overflow=ft.TextOverflow.ELLIPSIS),
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=4,
+            spacing=3,
             tight=True,
         ),
+    )
+
+
+def _plain_icon(icon, color: str, on_click) -> ft.Control:
+    return ft.IconButton(
+        icon=icon,
+        icon_color=color,
+        icon_size=22,
+        on_click=lambda e: on_click() if on_click else None,
+        style=ft.ButtonStyle(padding=0),
     )
 
 
 def build_finished_summary(
     *,
-    action_name: str,
+    session_name: str,
+    started_at: datetime | None = None,
     finished_at: datetime | None = None,
     sets: int = 1,
-    reps: int = 0,
-    posture_pct: int = 0,
     duration_seconds: int = 0,
     calories: int = 0,
-    effort_out_of_10: int = 6,
-    insight_reason: str = "本次训练节奏稳定，整体完成度不错。",
-    insight_key_point: str = "关键点：下蹲时注意膝盖方向与脚尖一致。",
-    next_focus: str = "下次优先保证动作幅度，再逐步提升次数。",
+    posture_pct: int = 0,
+    planned_actions: int = 0,
+    actions: list[dict] | None = None,
+    prev_calories: int | None = None,
+    prev_duration_seconds: int | None = None,
+    summary_text: str = "",
+    muscle_front_src: str | None = None,
+    muscle_back_src: str | None = None,
+    on_back=None,
     on_delete=None,
-    on_save=None,
     on_share=None,
     on_download=None,
-    saving: bool = False,
-    saved: bool = False,
 ) -> ft.Control:
-    when = finished_at or datetime.now()
-    date_label = f"{when.month}月{when.day}日 {when.hour:02d}:{when.minute:02d}"
-    time_label = _fmt_mmss(duration_seconds)
-    effort = max(0, min(10, int(effort_out_of_10)))
-    emoji = "😄" if effort >= 8 else ("🙂" if effort >= 4 else "😐")
-    save_label = "保存中…" if saving else ("已保存" if saved else "保存训练")
+    end = finished_at or datetime.now()
+    minutes = max(1, round(duration_seconds / 60)) if duration_seconds else 0
+    if started_at:
+        date_label = (
+            f"{end.month}月{end.day}日 "
+            f"{started_at.hour:02d}:{started_at.minute:02d}–{end.hour:02d}:{end.minute:02d}"
+        )
+    else:
+        date_label = f"{end.month}月{end.day}日 {end.hour:02d}:{end.minute:02d}"
+    done_actions = list(actions or [])
 
-    hero = ft.Container(
-        border_radius=24,
-        clip_behavior=ft.ClipBehavior.HARD_EDGE,
-        height=180,
-        bgcolor=HUD_SURFACE_MUTED,
-        content=ft.Stack(
+    def _delta(cur: int, prev: int | None, unit: str) -> str:
+        if prev is None or prev <= 0:
+            return "首次训练"
+        diff_pct = round((cur - prev) / prev * 100)
+        sign = "+" if diff_pct >= 0 else ""
+        return f"比上次 {sign}{diff_pct}%"
+
+    more_menu = ft.PopupMenuButton(
+        icon=ft.Icons.MORE_HORIZ,
+        icon_color=_SUM_TEXT,
+        items=[
+            ft.PopupMenuItem(
+                content=ft.Row(
+                    [
+                        ft.Icon(ft.Icons.IMAGE_OUTLINED, size=18, color=_SUM_TEXT2),
+                        ft.Text("保存本地", size=14, color=_SUM_TEXT),
+                    ],
+                    spacing=10,
+                    tight=True,
+                ),
+                on_click=lambda e: on_download() if on_download else None,
+            ),
+            ft.PopupMenuItem(
+                content=ft.Row(
+                    [
+                        ft.Icon(ft.Icons.DELETE_OUTLINE, size=18, color=_SUM_RED),
+                        ft.Text("删除", size=14, color=_SUM_RED),
+                    ],
+                    spacing=10,
+                    tight=True,
+                ),
+                on_click=lambda e: on_delete() if on_delete else None,
+            ),
+        ],
+    )
+    top_bar = ft.Row(
+        [
+            _plain_icon(ft.Icons.ARROW_BACK, _SUM_TEXT, on_back),
+            ft.Text(
+                "训练完成",
+                size=17,
+                weight=ft.FontWeight.W_700,
+                color=_SUM_TEXT,
+                text_align=ft.TextAlign.CENTER,
+                expand=True,
+            ),
+            _plain_icon(ft.Icons.IOS_SHARE, _SUM_TEXT, on_share),
+            more_menu,
+        ],
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+
+    hero = ft.Row(
+        [
+            ft.Icon(ft.Icons.CHECK_CIRCLE, color=_SUM_GREEN, size=44),
+            ft.Column(
+                [
+                    ft.Text("太棒了！", size=24, weight=ft.FontWeight.W_800, color=_SUM_TEXT),
+                    ft.Text("你已完成本次训练计划", size=13, color=_SUM_TEXT2),
+                ],
+                spacing=2,
+                tight=True,
+            ),
+            ft.Container(expand=True),
+            ft.Text(
+                "每一次坚持，\n都是更好的自己。",
+                size=11,
+                color=_SUM_TEXT2,
+                text_align=ft.TextAlign.RIGHT,
+            ),
+        ],
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+
+    info = ft.Column(
+        [
+            ft.Row(
+                [
+                    ft.Icon(ft.Icons.FITNESS_CENTER, size=15, color=_SUM_TEXT2),
+                    ft.Text(session_name, size=14, weight=ft.FontWeight.W_600, color=_SUM_TEXT),
+                    ft.Text(f"{sets}组", size=13, color=_SUM_TEXT2),
+                    ft.Icon(ft.Icons.TIMER_OUTLINED, size=14, color=_SUM_TEXT2),
+                    ft.Text(f"{minutes}分钟", size=13, color=_SUM_TEXT2),
+                ],
+                spacing=6,
+                tight=True,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            ft.Row(
+                [
+                    ft.Icon(ft.Icons.CALENDAR_TODAY, size=13, color=_SUM_TEXT2),
+                    ft.Text(date_label, size=12, color=_SUM_TEXT2),
+                ],
+                spacing=6,
+                tight=True,
+            ),
+        ],
+        spacing=6,
+        tight=True,
+    )
+
+    stats = _sum_card(
+        ft.Row(
             [
-                ft.Container(
-                    expand=True,
-                    alignment=ft.Alignment.CENTER,
-                    content=ft.Icon(ft.Icons.FITNESS_CENTER, size=56, color=HUD_CYAN),
+                _stat_cell(
+                    value=str(calories),
+                    unit="千卡",
+                    label="总消耗",
+                    sub=_delta(calories, prev_calories, "千卡"),
+                    value_color=_SUM_ORANGE,
+                    sub_color=_SUM_ORANGE if prev_calories else _SUM_TEXT2,
                 ),
-                ft.Container(
-                    expand=True,
-                    gradient=ft.LinearGradient(
-                        begin=ft.Alignment.TOP_CENTER,
-                        end=ft.Alignment.BOTTOM_CENTER,
-                        colors=["#66000000", "#CC070A0F"],
-                    ),
+                _stat_cell(
+                    value=str(minutes),
+                    unit="分钟",
+                    label="训练时长",
+                    sub=_delta(minutes, round(prev_duration_seconds / 60) if prev_duration_seconds else None, "分钟"),
                 ),
-                ft.Container(
-                    expand=True,
-                    padding=ft.Padding.all(16),
-                    alignment=ft.Alignment(-1, 1),
-                    content=ft.Column(
-                        [
-                            glass_container(
-                                content=ft.Text(
-                                    "训练完成",
-                                    size=12,
-                                    weight=ft.FontWeight.W_700,
-                                    color=HUD_GREEN,
-                                ),
-                                padding=ft.Padding.symmetric(horizontal=10, vertical=5),
-                            ),
-                            ft.Text(action_name, size=28, weight=ft.FontWeight.W_800, color=HUD_TEXT),
-                            ft.Row(
-                                [
-                                    ft.Icon(ft.Icons.CALENDAR_TODAY, size=14, color=HUD_TEXT_SECONDARY),
-                                    ft.Text(date_label, size=13, color=HUD_TEXT_SECONDARY),
-                                ],
-                                spacing=6,
-                                tight=True,
-                            ),
-                        ],
-                        spacing=6,
-                        tight=True,
-                    ),
+                _stat_cell(
+                    value=str(len(done_actions)),
+                    unit="个",
+                    label="完成动作",
+                    sub=f"计划 {planned_actions} 个",
+                ),
+                _stat_cell(
+                    value=f"{posture_pct}%" if posture_pct else "--",
+                    unit="",
+                    label="完成度",
+                    sub=posture_encouragement(posture_pct) if posture_pct else "暂无评分",
+                    value_color=_SUM_BLUE if posture_pct else _SUM_TEXT2,
+                    sub_color=_SUM_GREEN if posture_pct >= 70 else _SUM_TEXT2,
                 ),
             ]
         ),
+        padding=14,
     )
 
-    metrics = glass_container(
+    detail_rows: list[ft.Control] = []
+    for a in done_actions:
+        name = str(a.get("name") or "")
+        reps = int(a.get("reps") or 0)
+        a_sets = int(a.get("sets") or 1)
+        score = a.get("avg_score")
+        icon_src = _action_icon_asset(name)
+        icon_ctrl: ft.Control = (
+            ft.Image(src=icon_src, width=32, height=32, fit=ft.BoxFit.CONTAIN)
+            if icon_src
+            else ft.Icon(ft.Icons.FITNESS_CENTER, size=24, color=_SUM_TEXT2)
+        )
+        detail_rows.append(
+            ft.Row(
+                [
+                    ft.Container(
+                        width=40,
+                        height=40,
+                        border_radius=12,
+                        bgcolor=_SUM_BG,
+                        alignment=ft.Alignment.CENTER,
+                        content=icon_ctrl,
+                    ),
+                    ft.Column(
+                        [
+                            ft.Text(name, size=14, weight=ft.FontWeight.W_600, color=_SUM_TEXT),
+                            ft.Text(f"{a_sets}组 × {reps}次", size=12, color=_SUM_TEXT2),
+                        ],
+                        spacing=2,
+                        tight=True,
+                        expand=True,
+                    ),
+                    ft.Text(
+                        f"{score}%" if score else "--",
+                        size=15,
+                        weight=ft.FontWeight.W_700,
+                        color=_SUM_BLUE if score else _SUM_TEXT2,
+                    ),
+                ],
+                spacing=12,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            )
+        )
+    detail = _sum_card(
+        ft.Column(
+            [
+                ft.Text("训练详情", size=16, weight=ft.FontWeight.W_700, color=_SUM_TEXT),
+                *detail_rows,
+            ],
+            spacing=12,
+            tight=True,
+        )
+    )
+
+    legend = ft.Row(
+        [
+            *[
+                ft.Row(
+                    [
+                        ft.Container(width=10, height=10, border_radius=999, bgcolor=c),
+                        ft.Text(t, size=11, color=_SUM_TEXT2),
+                    ],
+                    spacing=4,
+                    tight=True,
+                )
+                for c, t in (
+                    ("#1D4ED8", "高强度"),
+                    ("#60A5FA", "中等强度"),
+                    ("#BFDBFE", "轻度"),
+                )
+            ]
+        ],
+        spacing=14,
+        alignment=ft.MainAxisAlignment.CENTER,
+    )
+    muscle_bodies: list[ft.Control] = []
+    for src in (muscle_front_src, muscle_back_src):
+        muscle_bodies.append(
+            ft.Container(
+                expand=True,
+                alignment=ft.Alignment.CENTER,
+                content=ft.Image(src=src, height=230, fit=ft.BoxFit.CONTAIN) if src else None,
+            )
+        )
+    muscle = _sum_card(
+        ft.Column(
+            [
+                ft.Text("肌肉激活", size=16, weight=ft.FontWeight.W_700, color=_SUM_TEXT),
+                ft.Text("本次训练主要激活了以下肌群", size=12, color=_SUM_TEXT2),
+                ft.Row(muscle_bodies, spacing=8),
+                legend,
+            ],
+            spacing=10,
+            tight=True,
+        )
+    )
+
+    summary_card = ft.Container(
+        bgcolor=_SUM_GREEN_BG,
+        border_radius=18,
+        padding=ft.Padding.all(16),
         content=ft.Column(
             [
                 ft.Row(
                     [
-                        _metric_cell(icon=ft.Icons.LAYERS, icon_color=HUD_METRIC_BLUE, value=str(sets), label="组数"),
-                        _metric_cell(icon=ft.Icons.AUTORENEW, icon_color=HUD_METRIC_PURPLE, value=str(reps), label="次数"),
-                        _metric_cell(
-                            icon=ft.Icons.VERIFIED_USER,
-                            icon_color=HUD_GREEN,
-                            value=f"{posture_pct}%",
-                            label="姿势",
-                        ),
-                    ]
+                        ft.Icon(ft.Icons.DESCRIPTION, size=16, color=_SUM_GREEN),
+                        ft.Text("训练小结", size=15, weight=ft.FontWeight.W_700, color=_SUM_TEXT),
+                    ],
+                    spacing=6,
                 ),
-                ft.Row(
-                    [
-                        _metric_cell(
-                            icon=ft.Icons.TIMER_OUTLINED,
-                            icon_color=HUD_METRIC_BLUE,
-                            value=time_label,
-                            label="时间",
-                        ),
-                        _metric_cell(
-                            icon=ft.Icons.LOCAL_FIRE_DEPARTMENT,
-                            icon_color=HUD_METRIC_ORANGE,
-                            value=str(calories),
-                            label="卡路里",
-                        ),
-                        _metric_cell(
-                            icon=ft.Icons.SENTIMENT_SATISFIED_ALT,
-                            icon_color=HUD_GREEN,
-                            value=f"{effort}/10 {emoji}",
-                            label="努力",
-                        ),
-                    ]
-                ),
+                ft.Text(summary_text, size=13, color="#374151"),
             ],
             spacing=8,
             tight=True,
         ),
-        padding=ft.Padding.only(left=12, top=16, right=12, bottom=8),
-        border_radius=24,
-    )
-
-    insight = glass_container(
-        content=ft.Column(
-            [
-                ft.Row(
-                    [
-                        ft.CircleAvatar(
-                            radius=14,
-                            bgcolor=HUD_CORAL,
-                            content=ft.Icon(ft.Icons.AUTO_AWESOME, size=16, color="white"),
-                        ),
-                        ft.Text("AI 教练洞察", size=16, weight=ft.FontWeight.W_700, color=HUD_TEXT),
-                    ],
-                    spacing=10,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                ),
-                ft.Text(insight_reason, size=14, color=HUD_TEXT_SECONDARY),
-                ft.Text(insight_key_point, size=14, color=HUD_TEXT_SECONDARY),
-                ft.Container(
-                    bgcolor="#070A0F8C",
-                    border_radius=14,
-                    border=ft.Border.only(left=ft.BorderSide(3, HUD_CORAL)),
-                    padding=ft.Padding.all(12),
-                    content=ft.Column(
-                        [
-                            ft.Text("下次训练重点", size=13, weight=ft.FontWeight.W_700, color=HUD_CORAL),
-                            ft.Text(next_focus, size=13, color=HUD_TEXT),
-                        ],
-                        spacing=6,
-                        tight=True,
-                    ),
-                ),
-            ],
-            spacing=12,
-            tight=True,
-        ),
-        padding=ft.Padding.all(16),
-        border_radius=24,
-    )
-
-    bottom = ft.Row(
-        [
-            glass_container(
-                content=ft.IconButton(
-                    icon=ft.Icons.DELETE_OUTLINE,
-                    icon_color=HUD_RECORD_RED,
-                    on_click=lambda e: on_delete() if on_delete else None,
-                ),
-                padding=ft.Padding.all(8),
-                border_radius=999,
-            ),
-            ft.Container(
-                expand=True,
-                content=ft.FilledButton(
-                    save_label,
-                    bgcolor=HUD_CORAL,
-                    color="white",
-                    disabled=saved or saving,
-                    height=52,
-                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=999)),
-                    on_click=lambda e: on_save() if on_save else None,
-                ),
-            ),
-            glass_container(
-                content=ft.IconButton(
-                    icon=ft.Icons.IOS_SHARE,
-                    icon_color=HUD_TEXT,
-                    on_click=lambda e: on_share() if on_share else None,
-                ),
-                padding=ft.Padding.all(8),
-                border_radius=999,
-            ),
-            glass_container(
-                content=ft.IconButton(
-                    icon=ft.Icons.DOWNLOAD,
-                    icon_color=HUD_TEXT,
-                    on_click=lambda e: on_download() if on_download else None,
-                ),
-                padding=ft.Padding.all(8),
-                border_radius=999,
-            ),
-        ],
-        spacing=12,
-        vertical_alignment=ft.CrossAxisAlignment.CENTER,
     )
 
     return ft.Column(
-        [
-            ft.Column(
-                [hero, metrics, insight],
-                spacing=14,
-                scroll=ft.ScrollMode.AUTO,
-                expand=True,
-            ),
-            bottom,
-        ],
+        [top_bar, hero, info, stats, detail, muscle, summary_card],
+        spacing=14,
+        scroll=ft.ScrollMode.AUTO,
         expand=True,
-        spacing=12,
     )

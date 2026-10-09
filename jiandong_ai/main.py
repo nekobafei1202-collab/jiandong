@@ -35,7 +35,8 @@ def main(page: ft.Page, *, preview: bool = False) -> None:
 
     def go_login(_: ft.ControlEvent | None = None) -> None:
         page.bgcolor = ShellColors.canvas
-        mount(page, build_login(page, on_success=go_shell, on_register=go_register))
+        # Login paints its own full-bleed background + inner SafeArea for content.
+        mount(page, build_login(page, on_success=go_shell, on_register=go_register), safe=False)
 
     def go_register(_: ft.ControlEvent | None = None) -> None:
         page.bgcolor = ShellColors.canvas

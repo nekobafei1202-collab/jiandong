@@ -2,71 +2,280 @@ from __future__ import annotations
 
 import flet as ft
 
-from jiandong_ai.app.constants import APP_NAME, MOCK_EMAIL, MOCK_PASSWORD
-from jiandong_ai.app.theme import ShellColors
+from jiandong_ai.app.constants import MOCK_EMAIL, MOCK_PASSWORD
 from jiandong_ai.services.mock_service import MockService
+from jiandong_ai.widgets.course_cover import asset_src
+
+_GREEN = "#3ECF9E"
+_GREEN_DISABLED = "#2E6B58"
+_TEXT = "#FFFFFF"
+_TEXT_DISABLED = "#BFFFFFFF"
+_TEXT2 = "#B3FFFFFF"
+_TEXT3 = "#80FFFFFF"
+_GLASS_BG = "#26FFFFFF"
+_GLASS_BORDER = "#40FFFFFF"
+_DANGER = "#FF8589"
+
+
+def _logo_bars() -> ft.Control:
+    heights = [16, 28, 44, 28, 16]
+    bars = [
+        ft.Container(width=8, height=h, bgcolor=_GREEN, border_radius=4)
+        for h in heights
+    ]
+    return ft.Row(bars, spacing=5, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+
+
+def _glass_field(*, hint: str, icon: str, password: bool = False, value: str = "") -> ft.TextField:
+    return ft.TextField(
+        value=value,
+        hint_text=hint,
+        hint_style=ft.TextStyle(color=_TEXT2, size=14),
+        text_style=ft.TextStyle(color=_TEXT, size=14),
+        prefix=ft.Container(
+            padding=ft.Padding.only(left=16, right=8),
+            content=ft.Icon(icon, size=20, color=_TEXT2),
+        ),
+        password=password,
+        can_reveal_password=password,
+        bgcolor=_GLASS_BG,
+        border=ft.InputBorder.OUTLINE,
+        border_radius=999,
+        border_color=_GLASS_BORDER,
+        focused_border_color=_GREEN,
+        cursor_color=_GREEN,
+        height=56,
+        content_padding=ft.Padding.symmetric(horizontal=4, vertical=14),
+        expand=True,
+    )
+
+
+def _social_circle(src: str, on_tap) -> ft.Control:
+    return ft.Container(
+        width=48,
+        height=48,
+        border_radius=999,
+        border=ft.Border.all(1, _GLASS_BORDER),
+        alignment=ft.Alignment.CENTER,
+        content=ft.Image(src=asset_src(src), width=22, height=22, fit=ft.BoxFit.CONTAIN),
+        on_click=on_tap,
+        ink=True,
+    )
 
 
 def build_login(page: ft.Page, *, on_success, on_register) -> ft.Control:
-    sc = ShellColors
-    email = ft.TextField(
-        label="邮箱",
-        value=MOCK_EMAIL,
-        border_color=sc.border,
-        bgcolor=sc.surface,
-        color=sc.text,
-        cursor_color=sc.accent,
-        focused_border_color=sc.accent,
-    )
-    password = ft.TextField(
-        label="密码",
-        value=MOCK_PASSWORD,
-        password=True,
-        can_reveal_password=True,
-        border_color=sc.border,
-        bgcolor=sc.surface,
-        color=sc.text,
-        cursor_color=sc.accent,
-        focused_border_color=sc.accent,
-    )
-    error = ft.Text("", color=sc.danger, size=12)
-    busy = ft.Ref[ft.ProgressRing]()
+    page.fonts = {
+        **(page.fonts or {}),
+        "MaShanZheng": asset_src("assets/fonts/MaShanZheng-Regular.ttf"),
+    }
+
+    def toast(msg: str) -> None:
+        page.show_dialog(ft.SnackBar(ft.Text(msg)))
+
+    # 演示阶段预填测试账号，省去每次手动输入
+    account = _glass_field(hint="请输入手机号", icon=ft.Icons.PHONE_ANDROID_OUTLINED, value=MOCK_EMAIL)
+    password = _glass_field(hint="请输入密码", icon=ft.Icons.LOCK_OUTLINE, password=True, value=MOCK_PASSWORD)
+    error = ft.Text("", color=_DANGER, size=12)
+
+    agreed = ft.Ref[ft.Checkbox]()
+    login_btn = ft.Ref[ft.FilledButton]()
+
+    def _sync_login_state() -> None:
+        ok = bool(agreed.current and agreed.current.value)
+        if login_btn.current is not None:
+            login_btn.current.bgcolor = _GREEN if ok else _GREEN_DISABLED
+            login_btn.current.color = _TEXT if ok else _TEXT_DISABLED
+        page.update()
 
     def submit(_: ft.ControlEvent) -> None:
+        if not (agreed.current and agreed.current.value):
+            toast("请先阅读并同意《用户协议》和《隐私政策》")
+            return
         error.value = ""
-        user = MockService.instance().login(email.value or "", password.value or "")
+        user = MockService.instance().login(account.value or "", password.value or "")
         if user is None:
-            error.value = "账号或密码错误（试用 test@example.com / 123456）"
+            error.value = f"账号或密码错误（演示账号 {MOCK_EMAIL} / {MOCK_PASSWORD}）"
             page.update()
             return
         on_success()
 
+    agreement_text = ft.Text(
+        size=12,
+        spans=[
+            ft.TextSpan("我已阅读并同意 ", style=ft.TextStyle(color=_TEXT)),
+            ft.TextSpan("《用户协议》", style=ft.TextStyle(color=_GREEN)),
+            ft.TextSpan(" 和 ", style=ft.TextStyle(color=_TEXT)),
+            ft.TextSpan("《隐私政策》", style=ft.TextStyle(color=_GREEN)),
+        ],
+    )
+    agree_block = ft.Column(
+        [
+            ft.Row(
+                [
+                    ft.Checkbox(
+                        ref=agreed,
+                        value=False,
+                        fill_color=ft.Colors.with_opacity(0.2, "#FFFFFF"),
+                        check_color=_GREEN,
+                        border_side=ft.BorderSide(1.5, _TEXT2),
+                        on_change=lambda e: _sync_login_state(),
+                    ),
+                    ft.Container(expand=True, content=agreement_text),
+                ],
+                spacing=2,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            ft.Row(
+                [
+                    ft.TextButton(
+                        "忘记密码?",
+                        style=ft.ButtonStyle(color=_TEXT2, padding=0),
+                        on_click=lambda e: toast("忘记密码功能暂未开放"),
+                    ),
+                ],
+                alignment=ft.MainAxisAlignment.END,
+            ),
+        ],
+        spacing=0,
+        tight=True,
+    )
+
+    content = ft.Column(
+        [
+            # 区域 A：品牌区
+            ft.Container(height=16),
+            ft.Row(
+                [
+                    _logo_bars(),
+                    ft.Container(width=12),
+                    ft.Text("健动AI", size=30, weight=ft.FontWeight.W_800, color=_TEXT),
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            ft.Container(height=6),
+            ft.Text("更好的自己，从每一次训练开始", size=14, color=_TEXT2),
+            # 区域 B：宣传语区
+            ft.Container(height=36),
+            ft.Container(
+                rotate=-0.03,
+                content=ft.Column(
+                    [
+                        ft.Text(
+                            "坚持",
+                            size=40,
+                            font_family="MaShanZheng",
+                            color="#FFFDF4",
+                        ),
+                        ft.Container(
+                            padding=ft.Padding.only(left=38),
+                            content=ft.Text(
+                                "让改变发生",
+                                size=40,
+                                font_family="MaShanZheng",
+                                color="#FFFDF4",
+                            ),
+                        ),
+                        ft.Container(
+                            margin=ft.Margin.only(left=24, top=2),
+                            content=ft.Image(
+                                src=asset_src("assets/images/slogan_stroke.svg"),
+                                width=190,
+                                fit=ft.BoxFit.CONTAIN,
+                            ),
+                        ),
+                    ],
+                    spacing=0,
+                    tight=True,
+                    horizontal_alignment=ft.CrossAxisAlignment.START,
+                ),
+            ),
+            # 弹性间隔：高屏自然撑开，矮屏/键盘弹出时收缩
+            ft.Container(expand=True),
+            # 区域 C：登录表单区
+            ft.Row([account]),
+            ft.Container(height=14),
+            ft.Row([password]),
+            ft.Container(height=4),
+            ft.Container(height=18, alignment=ft.Alignment.CENTER_LEFT, content=error),
+            ft.Container(alignment=ft.Alignment.CENTER_LEFT, content=agree_block),
+            ft.Container(height=16),
+            ft.Row(
+                [
+                    ft.FilledButton(
+                        "登录",
+                        ref=login_btn,
+                        bgcolor=_GREEN_DISABLED,
+                        color=_TEXT_DISABLED,
+                        height=56,
+                        expand=True,
+                        style=ft.ButtonStyle(
+                            shape=ft.RoundedRectangleBorder(radius=999),
+                            text_style=ft.TextStyle(size=17, weight=ft.FontWeight.W_700),
+                        ),
+                        on_click=submit,
+                    ),
+                ]
+            ),
+            # 区域 D：辅助登录区
+            ft.Container(height=28),
+            ft.Row(
+                [
+                    ft.Container(expand=True, height=1, bgcolor="#33FFFFFF"),
+                    ft.Text("  其他登录方式  ", size=12, color=_TEXT3),
+                    ft.Container(expand=True, height=1, bgcolor="#33FFFFFF"),
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            ft.Container(height=18),
+            ft.Row(
+                [
+                    _social_circle("assets/images/wechat.svg", lambda e: toast("微信登录暂未接入")),
+                    ft.Container(width=28),
+                    _social_circle("assets/images/qq.svg", lambda e: toast("QQ登录暂未接入")),
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
+            ft.Container(height=18),
+            ft.Row(
+                [
+                    ft.Text("还没有账号？", size=13, color=_TEXT2),
+                    ft.TextButton(
+                        "立即注册",
+                        style=ft.ButtonStyle(color=_GREEN, padding=0),
+                        on_click=lambda e: toast("注册功能暂未开放"),
+                    ),
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=0,
+            ),
+            ft.Container(height=8),
+        ],
+        expand=True,
+        spacing=0,
+        scroll=ft.ScrollMode.AUTO,
+    )
+
     return ft.Container(
         expand=True,
-        bgcolor=sc.canvas,
-        padding=24,
-        content=ft.Column(
+        image=ft.DecorationImage(
+            src=asset_src("assets/images/login_bg.jpg"),
+            fit=ft.BoxFit.COVER,
+        ),
+        content=ft.Stack(
             [
-                ft.Container(height=48),
-                ft.Text(APP_NAME, size=32, weight=ft.FontWeight.BOLD, color=sc.text),
-                ft.Text("登录后开始训练", size=14, color=sc.text_secondary),
-                ft.Container(height=28),
-                email,
-                password,
-                error,
-                ft.Container(height=8),
-                ft.FilledButton(
-                    "登录",
-                    bgcolor=sc.accent,
-                    color=sc.on_cta,
-                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=24)),
-                    on_click=submit,
-                    width=page.width or 360,
-                    height=48,
+                ft.Container(
+                    expand=True,
+                    gradient=ft.LinearGradient(
+                        begin=ft.Alignment.TOP_CENTER,
+                        end=ft.Alignment.BOTTOM_CENTER,
+                        colors=["#59000000", "#73000000", "#D9000000"],
+                    ),
                 ),
-                ft.TextButton("注册账号", style=ft.ButtonStyle(color=sc.accent), on_click=lambda e: on_register()),
-                ft.ProgressRing(ref=busy, visible=False, width=20, height=20),
+                ft.SafeArea(
+                    expand=True,
+                    content=ft.Container(padding=ft.Padding.symmetric(horizontal=24), content=content),
+                ),
             ],
-            tight=True,
+            expand=True,
         ),
     )

@@ -386,3 +386,12 @@ class MockService:
         time.sleep(0.05)
         self._ensure_history().insert(0, record)
         self._save()
+
+    def delete_training_record(self, record_id: str) -> bool:
+        history = self._ensure_history()
+        for i, r in enumerate(history):
+            if r.id == record_id:
+                history.pop(i)
+                self._save()
+                return True
+        return False

@@ -534,6 +534,13 @@ class PoseTrainingActivity : FragmentActivity() {
                 try {
                     val hud = JSONObject(file.readText())
                     lastHudStamp = file.lastModified()
+                    if (hud.optBoolean("sessionDone", false)) {
+                        // Python finished the session (last set of last action)
+                        // — close so the Flet summary page is revealed.
+                        sessionActive = false
+                        finish()
+                        return
+                    }
                     // Queue state applies in preview too — the action label and
                     // ‹ › arrows must track Python's queue before「开始拍摄」.
                     val action = hud.optString("action", "")

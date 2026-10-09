@@ -1,13 +1,21 @@
 from __future__ import annotations
 
-from datetime import datetime
+import math
+import tempfile
+from datetime import datetime, timedelta
+from pathlib import Path
 
 import flet as ft
 
 from jiandong_ai.app.theme import ShellColors
 from jiandong_ai.services.mock_service import MockService
 from jiandong_ai.widgets.matte_card import matte_card
+from jiandong_ai.widgets.muscle_map import activation_for_actions, render_muscle_svg
 from jiandong_ai.widgets.section_header import section_header
+from jiandong_ai.widgets.training_hud import (
+    build_finished_summary,
+    build_session_summary_text,
+)
 
 
 class RecordsView(ft.Container):
@@ -19,6 +27,8 @@ class RecordsView(ft.Container):
         self.content = self._list
 
     def on_show(self) -> None:
+        # Tab 切换回来时总是回到记录列表，而不是停留在某条的详情页
+        self.content = self._list
         self.refresh()
 
     def _day_label(self, iso: str) -> str:
@@ -28,13 +38,6 @@ class RecordsView(ft.Container):
             return iso
         weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
         return f"{d.month}月{d.day}日 {weekdays[d.weekday()]}"
-
-    def _full_date(self, iso: str) -> str:
-        try:
-            d = datetime.fromisoformat(iso)
-        except ValueError:
-            return iso
-        return f"{d.year}年{d.month}月{d.day}日"
 
     def refresh(self) -> None:
         sc = ShellColors
@@ -218,87 +221,105 @@ class RecordsView(ft.Container):
         )
 
     def _show_detail(self, record) -> None:
-        sc = ShellColors
-        stats_row = [
-            self._sheet_stat("时长", f"{record.duration} 分钟"),
-        ]
-        if record.calories is not None:
-            stats_row.append(self._sheet_stat("消耗", f"{record.calories} 千卡"))
-        if record.total_reps is not None:
-            stats_row.append(self._sheet_stat("总次数", str(record.total_reps)))
-        stats_row.append(self._sheet_stat("评分", str(record.score)))
-
-        action_rows: list[ft.Control] = []
+        """Open the full light summary page for a historical record."""
+        actions: list[dict] = []
         for a in record.actions:
-            detail = f"{a.reps} 次"
-            if a.avg_score:
-                detail += f" · {a.avg_score} 分"
-            action_rows.append(
-                ft.Container(
-                    padding=ft.Padding.symmetric(vertical=6),
-                    content=ft.Row(
-                        [
-                            ft.Text(a.action_name, expand=True, color=sc.text),
-                            ft.Text(detail, size=13, color=sc.text_secondary),
-                        ]
-                    ),
-                )
+            reps = int(a.reps or 0)
+            est_sets = max(1, min(4, math.ceil(reps / 10))) if reps > 0 else 1
+            actions.append(
+                {
+                    "name": a.action_name,
+                    "reps": reps,
+                    "sets": est_sets,
+                    "avg_score": a.avg_score,
+                }
             )
+        try:
+            finished_at = datetime.fromisoformat(record.date)
+        except ValueError:
+            finished_at = datetime.now()
+        duration_seconds = int(record.duration or 0) * 60
+        started_at = finished_at - timedelta(seconds=duration_seconds)
 
-        score = record.score
-        if score >= 90:
-            review = "总体评价：表现优秀，动作质量很高，保持这个节奏。"
-        elif score >= 75:
-            review = "总体评价：整体不错，注意个别动作的稳定性和幅度。"
-        elif score >= 60:
-            review = "总体评价：完成了训练，下次放慢一点、优先保证姿势。"
-        else:
-            review = "总体评价：先别追求次数，把每个动作做标准更重要。"
+        history = self._svc.get_training_history()
+        prev = None
+        for i, r in enumerate(history):
+            if r.id == record.id:
+                prev = history[i + 1] if i + 1 < len(history) else None
+                break
 
-        dlg = ft.AlertDialog(
-            bgcolor=sc.surface,
-            title=ft.Text(record.exercise_name, color=sc.text),
-            content=ft.Column(
-                [
-                    ft.Text(self._full_date(record.date), size=12, color=sc.text_secondary),
-                    ft.Container(height=12),
-                    ft.Row(stats_row, wrap=True, spacing=10),
-                    *(
-                        [
-                            ft.Container(height=12),
-                            ft.Text("动作明细", weight=ft.FontWeight.W_600, color=sc.text),
-                            *action_rows,
-                            ft.Text(review, size=13, color=sc.accent),
-                        ]
-                        if record.actions
-                        else []
-                    ),
-                ],
-                tight=True,
-                height=280,
-                scroll=ft.ScrollMode.AUTO,
+        front_src, back_src = None, None
+        try:
+            activation = activation_for_actions([a["name"] for a in actions])
+            tmp = Path(tempfile.gettempdir())
+            front = tmp / "jiandong_muscle_front.svg"
+            back = tmp / "jiandong_muscle_back.svg"
+            front.write_text(render_muscle_svg(activation, view="front"), encoding="utf-8")
+            back.write_text(render_muscle_svg(activation, view="back"), encoding="utf-8")
+            front_src, back_src = str(front), str(back)
+        except Exception:
+            pass
+
+        def back_to_list() -> None:
+            self.content = self._list
+            self.refresh()
+
+        self.content = ft.Container(
+            expand=True,
+            bgcolor="#F5F7FA",
+            padding=ft.Padding.all(16),
+            content=build_finished_summary(
+                session_name=record.exercise_name,
+                started_at=started_at,
+                finished_at=finished_at,
+                sets=max(1, sum(a["sets"] for a in actions) or 1),
+                duration_seconds=duration_seconds,
+                calories=record.calories or 0,
+                posture_pct=record.score or 0,
+                planned_actions=len(actions),
+                actions=actions,
+                prev_calories=prev.calories if prev else None,
+                prev_duration_seconds=(prev.duration * 60) if prev else None,
+                summary_text=build_session_summary_text(actions),
+                muscle_front_src=front_src,
+                muscle_back_src=back_src,
+                on_back=back_to_list,
+                on_delete=lambda: self._confirm_delete(record, back_to_list),
+                on_share=lambda: self._toast("分享功能即将开放"),
+                on_download=lambda: self._toast("下载功能即将开放"),
             ),
-            actions=[ft.TextButton("关闭", on_click=lambda e: _close_dlg())],
+        )
+        try:
+            self.update()
+        except Exception:
+            pass
+
+    def _confirm_delete(self, record, on_deleted) -> None:
+        dlg = ft.AlertDialog(
+            title=ft.Text("删除这条训练记录？"),
+            content=ft.Text("删除后无法恢复。"),
+            actions=[
+                ft.TextButton("取消", on_click=lambda e: close()),
+                ft.TextButton(
+                    "删除",
+                    on_click=lambda e: confirm(),
+                ),
+            ],
         )
 
-        def _close_dlg() -> None:
+        def close() -> None:
             dlg.open = False
-            dlg.update()
+            try:
+                dlg.update()
+            except Exception:
+                pass
+
+        def confirm() -> None:
+            self._svc.delete_training_record(record.id)
+            close()
+            on_deleted()
 
         self._host.show_dialog(dlg)
 
-    def _sheet_stat(self, label: str, value: str) -> ft.Control:
-        sc = ShellColors
-        return ft.Container(
-            padding=ft.Padding.symmetric(horizontal=10, vertical=8),
-            bgcolor=sc.canvas,
-            border_radius=10,
-            content=ft.Column(
-                [
-                    ft.Text(label, size=11, color=sc.text_secondary),
-                    ft.Text(value, size=13, weight=ft.FontWeight.W_600, color=sc.text),
-                ],
-                spacing=2,
-                tight=True,
-            ),
-        )
+    def _toast(self, msg: str) -> None:
+        self._host.show_dialog(ft.SnackBar(ft.Text(msg)))

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import math
+import tempfile
 import threading
 import time
 from datetime import datetime
+from pathlib import Path
 
 import flet as ft
 
@@ -14,6 +17,7 @@ from jiandong_ai.app.theme import HUD_CANVAS
 from jiandong_ai.models import RecordAction, TrainingRecord
 from jiandong_ai.services.action_guide_catalog import ActionGuideCatalog
 from jiandong_ai.services.mock_service import MockService
+from jiandong_ai.widgets.muscle_map import activation_for_actions, render_muscle_svg
 from jiandong_ai.widgets.pose_overlay import draw_pose_overlay, frame_to_image_src, placeholder_image
 from jiandong_ai.widgets.safe_area import safe_area
 from jiandong_ai.widgets.training_hud import (
@@ -25,6 +29,7 @@ from jiandong_ai.widgets.training_hud import (
     build_posture_ring,
     build_rep_counter,
     build_rest_countdown,
+    build_session_summary_text,
     build_set_nav,
     build_top_bar,
 )
@@ -42,6 +47,7 @@ _LABEL_NEXT_SET = "\u4e0b\u4e00\u7ec4"
 _LABEL_PREV_ACT = "\u4e0a\u4e00\u4e2a"
 _LABEL_NEXT_ACT = "\u4e0b\u4e00\u4e2a"
 _LABEL_SKIP_REST = "\u8df3\u8fc7\u4f11\u606f"
+_LABEL_FINISH = "\u5b8c\u6210"
 _REST_LABEL_SET = "\u7ec4\u95f4\u4f11\u606f"
 _REST_LABEL_ACTION = "\u52a8\u4f5c\u5207\u6362"
 _ENDED = "\u8bad\u7ec3\u5df2\u7ed3\u675f"
@@ -76,6 +82,7 @@ def compute_nav_mode(
     set_index: int,
     sets_per_action: int = _SETS_PER_ACTION,
     has_previous: bool,
+    has_next: bool = True,
 ) -> dict:
     """Labels + behavior flags for bottom set/action navigation."""
     if guide_only:
@@ -99,7 +106,8 @@ def compute_nav_mode(
     if set_index >= sets_per_action:
         return {
             "prev_label": _LABEL_PREV_SET,
-            "next_label": _LABEL_NEXT_ACT,
+            # Last set of the last action: the next button finishes the session.
+            "next_label": _LABEL_NEXT_ACT if has_next else _LABEL_FINISH,
             "prev_is_action": False,
             "next_is_action": True,
             "can_prev": True,
@@ -113,13 +121,6 @@ def compute_nav_mode(
         "can_prev": True,
         "can_next": True,
     }
-_INSIGHT_FALLBACK = (
-    "\u672c\u6b21\u8bad\u7ec3\u8282\u594f\u7a33\u5b9a\uff0c\u6574\u4f53\u5b8c\u6210\u5ea6\u4e0d\u9519\u3002"
-)
-_KEY_POINT = "\u5173\u952e\u70b9\uff1a\u4fdd\u6301\u6838\u5fc3\u6536\u7d27\uff0c\u52a8\u4f5c\u5e45\u5ea6\u505a\u6ee1\u3002"
-_NEXT_FOCUS_TMPL = (
-    "\u4e0b\u6b21\u7ee7\u7eed\u7ec3\u4e60\u300c{name}\u300d\uff0c\u4f18\u5148\u4fdd\u8bc1\u59ff\u52bf\u518d\u63d0\u5347\u6b21\u6570\u3002"
-)
 _SHARE_SOON = "\u5206\u4eab\u529f\u80fd\u5373\u5c06\u5f00\u653e"
 _DOWNLOAD_SOON = "\u4e0b\u8f7d\u529f\u80fd\u5373\u5c06\u5f00\u653e"
 _TODAY_PLAN = "\u4eca\u65e5\u8ba1\u5212"
@@ -159,6 +160,7 @@ class TrainingView(ft.Container):
         self._completed_set_scores: list[int] = []
         self._session_sets_completed = 0
         self._record_saved = False
+        self._record_id: str | None = None
         self._saving = False
         self._booting = False
         self._cam_error: str | None = None
@@ -401,6 +403,7 @@ class TrainingView(ft.Container):
             set_index=self._set_index,
             sets_per_action=_SETS_PER_ACTION,
             has_previous=self._queue.has_previous,
+            has_next=self._queue.has_next,
         )
 
     def _hud_set_kwargs(self) -> dict:
@@ -914,6 +917,12 @@ class TrainingView(ft.Container):
         self._vignette.visible = True
         if finish:
             self._phase = "finished"
+            if self._uses_native_preview() and hasattr(self._session, "publish_hud"):
+                # Tell the native activity the session is done so it closes
+                # itself and reveals the summary page underneath.
+                self._session.publish_hud(
+                    reps=0, score=0, title="", subtitle="", session_done=True
+                )
             self._rebuild_summary()
         else:
             self._phase = "idle"
@@ -947,9 +956,10 @@ class TrainingView(ft.Container):
             )
             for item in self._queue.completed
         )
+        record_id = f"r_{int(time.time() * 1000)}"
         self._svc.add_training_record(
             TrainingRecord(
-                id=f"r_{int(time.time() * 1000)}",
+                id=record_id,
                 exercise_name=self._session_title or self._default_session_title(),
                 duration=minutes,
                 score=self._avg_quality,
@@ -959,6 +969,7 @@ class TrainingView(ft.Container):
                 actions=actions,
             )
         )
+        self._record_id = record_id
         self._record_saved = True
         self._saving = False
         self._rebuild_summary()
@@ -1433,44 +1444,99 @@ class TrainingView(ft.Container):
         self._rebuild_hud()
         self._safe_update()
 
+    def _confirm_delete_record(self) -> None:
+        dlg = ft.AlertDialog(
+            title=ft.Text("删除这条训练记录？"),
+            content=ft.Text("删除后无法恢复。"),
+            actions=[
+                ft.TextButton("取消", on_click=lambda e: self._close_dlg()),
+                ft.TextButton("删除", on_click=self._do_delete_record),
+            ],
+        )
+        self._open_dlg(dlg)
+
+    def _do_delete_record(self, _: ft.ControlEvent | None = None) -> None:
+        self._close_dlg()
+        if self._record_id:
+            self._svc.delete_training_record(self._record_id)
+            self._record_id = None
+            self._record_saved = False
+        self._close()
+
+    def _summary_actions(self) -> list[dict]:
+        items: list[dict] = []
+        for a in self._queue.completed:
+            if ExerciseKind.is_guide_only(a.action_name):
+                continue
+            reps = int(a.reps or 0)
+            est_sets = (
+                max(1, min(_SETS_PER_ACTION, math.ceil(reps / _TARGET_REPS)))
+                if reps > 0
+                else 1
+            )
+            items.append(
+                {
+                    "name": a.action_name,
+                    "reps": reps,
+                    "sets": est_sets,
+                    "avg_score": a.avg_score,
+                }
+            )
+        return items
+
+    def _previous_record(self, session_name: str) -> TrainingRecord | None:
+        for r in self._svc.get_training_history():
+            if r.exercise_name == session_name and r.id != self._record_id:
+                return r
+        return None
+
+    def _muscle_svg_srcs(self, action_names: list[str]) -> tuple[str | None, str | None]:
+        try:
+            activation = activation_for_actions(action_names)
+            tmp = Path(tempfile.gettempdir())
+            front = tmp / "jiandong_muscle_front.svg"
+            back = tmp / "jiandong_muscle_back.svg"
+            front.write_text(render_muscle_svg(activation, view="front"), encoding="utf-8")
+            back.write_text(render_muscle_svg(activation, view="back"), encoding="utf-8")
+            return str(front), str(back)
+        except Exception:
+            return None, None
+
     def _rebuild_summary(self) -> None:
         self._hud_safe.visible = True
         self._hud_layer.visible = False
         self._summary_layer.visible = True
+        self._summary_layer.bgcolor = "#F5F7FA"
         name = self._session_title or self._default_session_title()
-        scored_actions = [
-            a
-            for a in self._queue.completed
-            if not ExerciseKind.is_guide_only(a.action_name)
-        ]
-        next_name = (
-            scored_actions[-1].action_name
-            if scored_actions
-            else ExerciseKind.display_name(self._action_name)
-        )
-        posture = self._avg_quality if self._avg_quality > 0 else 0
+        actions = self._summary_actions()
         sets_done = max(1, self._session_sets_completed) if self._session_sets_completed else (
-            max(1, len(scored_actions) or self._queue.completed_count or 1)
+            max(1, sum(a["sets"] for a in actions) or self._queue.completed_count or 1)
         )
+        planned = sum(
+            1 for a in self._queue.actions if not ExerciseKind.is_guide_only(a)
+        )
+        prev = self._previous_record(name)
+        front_src, back_src = self._muscle_svg_srcs([a["name"] for a in actions])
         self._summary_layer.content = ft.Container(
             expand=True,
             padding=ft.Padding.all(16),
             content=build_finished_summary(
-                action_name=name,
+                session_name=name,
+                started_at=self._started_at,
                 finished_at=self._finished_at,
                 sets=sets_done,
-                reps=self._display_reps,
-                posture_pct=posture,
                 duration_seconds=self._elapsed,
                 calories=self._calories,
-                effort_out_of_10=max(3, min(10, (self._display_reps // 2) + 4)),
-                insight_reason=self._pipeline.coach.message or _INSIGHT_FALLBACK,
-                insight_key_point=_KEY_POINT,
-                next_focus=_NEXT_FOCUS_TMPL.format(name=next_name),
-                saving=self._saving,
-                saved=self._record_saved,
-                on_delete=self._close,
-                on_save=self._persist_record,
+                posture_pct=self._avg_quality if self._avg_quality > 0 else 0,
+                planned_actions=planned,
+                actions=actions,
+                prev_calories=prev.calories if prev else None,
+                prev_duration_seconds=prev.duration * 60 if prev else None,
+                summary_text=build_session_summary_text(actions),
+                muscle_front_src=front_src,
+                muscle_back_src=back_src,
+                on_back=self._close,
+                on_delete=self._confirm_delete_record,
                 on_share=lambda: self._toast(_SHARE_SOON),
                 on_download=lambda: self._toast(_DOWNLOAD_SOON),
             ),

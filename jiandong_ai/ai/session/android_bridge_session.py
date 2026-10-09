@@ -107,6 +107,8 @@ class AndroidBridgePoseSession:
             self.bridge_dir.mkdir(parents=True, exist_ok=True)
             event_path = self.bridge_dir / "event.json"
             event_path.unlink(missing_ok=True)
+            # Clear any stale sessionDone flag from a previous session.
+            (self.bridge_dir / "hud.json").unlink(missing_ok=True)
             self._last_event_seq = -1
             self._last_frame_id = -1
             command = "preview_front" if self.is_front_camera else "preview_back"
@@ -183,6 +185,7 @@ class AndroidBridgePoseSession:
         rest_seconds: int | None = None,
         rest_label: str | None = None,
         rep_target: int | None = None,
+        session_done: bool | None = None,
     ) -> None:
         payload = {
             "reps": int(reps),
@@ -218,6 +221,8 @@ class AndroidBridgePoseSession:
             payload["restSeconds"] = int(rest_seconds)
         if rest_label is not None:
             payload["restLabel"] = str(rest_label)
+        if session_done is not None:
+            payload["sessionDone"] = bool(session_done)
         try:
             self.bridge_dir.mkdir(parents=True, exist_ok=True)
             self._atomic_write_text(

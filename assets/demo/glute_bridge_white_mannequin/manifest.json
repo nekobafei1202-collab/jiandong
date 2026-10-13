@@ -1,0 +1,158 @@
+{
+  "id": "glute_bridge_white_mannequin",
+  "version": 3,
+  "status": "approved",
+  "exerciseId": "glute_bridge",
+  "aliases": [
+    "glute_bridge",
+    "臀桥"
+  ],
+  "view": "side",
+  "playback": "immediate",
+  "frameCount": 24,
+  "durationMs": 2200,
+  "pixelSize": {
+    "w": 240,
+    "h": 320
+  },
+  "phases": [
+    {
+      "frames": [
+        0,
+        3
+      ],
+      "name": "start_supine_90"
+    },
+    {
+      "frames": [
+        4,
+        9
+      ],
+      "name": "drive"
+    },
+    {
+      "frames": [
+        10,
+        13
+      ],
+      "name": "peak_line"
+    },
+    {
+      "frames": [
+        14,
+        19
+      ],
+      "name": "lower"
+    },
+    {
+      "frames": [
+        20,
+        23
+      ],
+      "name": "return"
+    }
+  ],
+  "avoid": [
+    "heel off mat",
+    "hip thrust whip",
+    "lumbar dump / chin up"
+  ],
+  "keyframes": {
+    "start": "supine knee≈90° feet flat arms at sides",
+    "peak": "shoulder–hip–knee diagonal, glute squeeze"
+  },
+  "audit": {
+    "start": {
+      "lift": 0.0,
+      "hipLiftPx": 0.0,
+      "kneeDeg": 90.0,
+      "hipOpenDeg": 136.8,
+      "shoulderY": 252.0,
+      "headY": 250.0,
+      "heelOffPx": 0.0,
+      "hip": [
+        140.0,
+        254.0
+      ],
+      "knee": [
+        183.4,
+        215.6
+      ],
+      "ankle": [
+        219.2,
+        256.0
+      ]
+    },
+    "peak": {
+      "lift": 1.0,
+      "hipLiftPx": 38.0,
+      "kneeDeg": 75.9,
+      "hipOpenDeg": 172.4,
+      "shoulderY": 252.0,
+      "headY": 250.0,
+      "heelOffPx": 0.0,
+      "hip": [
+        163.0,
+        216.0
+      ],
+      "knee": [
+        219.3,
+        202.0
+      ],
+      "ankle": [
+        219.2,
+        256.0
+      ]
+    },
+    "mid": {
+      "lift": 0.5,
+      "hipLiftPx": 19.0,
+      "kneeDeg": 78.4,
+      "hipOpenDeg": 161.0,
+      "shoulderY": 252.0,
+      "headY": 250.0,
+      "heelOffPx": 0.0,
+      "hip": [
+        151.5,
+        235.0
+      ],
+      "knee": [
+        201.2,
+        205.1
+      ],
+      "ankle": [
+        219.2,
+        256.0
+      ]
+    }
+  },
+  "frames": [
+    "frame_00.png",
+    "frame_01.png",
+    "frame_02.png",
+    "frame_03.png",
+    "frame_04.png",
+    "frame_05.png",
+    "frame_06.png",
+    "frame_07.png",
+    "frame_08.png",
+    "frame_09.png",
+    "frame_10.png",
+    "frame_11.png",
+    "frame_12.png",
+    "frame_13.png",
+    "frame_14.png",
+    "frame_15.png",
+    "frame_16.png",
+    "frame_17.png",
+    "frame_18.png",
+    "frame_19.png",
+    "frame_20.png",
+    "frame_21.png",
+    "frame_22.png",
+    "frame_23.png"
+  ],
+  "gifPreview": "glute_bridge_white_mannequin.gif",
+  "note": "Wired for DemoGuidePane — approved 2026-10-13",
+  "coachSpec": "主管转发·教练关键帧 2026-10-13"
+}

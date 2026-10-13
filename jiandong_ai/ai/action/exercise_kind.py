@@ -10,6 +10,8 @@ class ExerciseKind:
     crunch = "crunch"
     high_knees = "high_knees"
     glute_bridge = "glute_bridge"
+    side_bridge = "side_bridge"
+    dead_bug = "dead_bug"
 
     squat_label = "深蹲"
     pushup_label = "俯卧撑"
@@ -19,6 +21,8 @@ class ExerciseKind:
     crunch_label = "卷腹"
     high_knees_label = "高抬腿"
     glute_bridge_label = "臀桥"
+    side_bridge_label = "侧桥"
+    dead_bug_label = "死虫式"
 
     squat_demo_dir = "assets/demo/squat_white_mannequin"
     pushup_demo_dir = "assets/demo/pushup_white_mannequin"
@@ -27,6 +31,8 @@ class ExerciseKind:
     jumping_jack_demo_dir = "assets/demo/jumping_jack_white_mannequin"
     crunch_demo_dir = "assets/demo/crunch_white_mannequin"
     high_knees_demo_dir = "assets/demo/high_knees_white_mannequin"
+    glute_bridge_demo_dir = "assets/demo/glute_bridge_white_mannequin"
+    dead_bug_demo_dir = "assets/demo/dead_bug_white_mannequin"
 
     @staticmethod
     def _token(id_: str | None) -> str:
@@ -67,6 +73,16 @@ class ExerciseKind:
         return cls._is_any(id_, {"crunch", "crunches", "卷腹"})
 
     @classmethod
+    def is_side_bridge(cls, id_: str | None) -> bool:
+        return cls._is_any(
+            id_, {"side_bridge", "side_plank", "侧桥", "侧平板"}
+        )
+
+    @classmethod
+    def is_dead_bug(cls, id_: str | None) -> bool:
+        return cls._is_any(id_, {"dead_bug", "deadbug", "死虫式"})
+
+    @classmethod
     def is_high_knees(cls, id_: str | None) -> bool:
         return cls._is_any(id_, {"high_knees", "high_knee", "highknees", "高抬腿"})
 
@@ -86,6 +102,12 @@ class ExerciseKind:
             return cls.reverse_lunge
         if cls.is_plank(id_):
             return cls.plank
+        if cls.is_crunch(id_):
+            return cls.crunch
+        if cls.is_side_bridge(id_):
+            return cls.side_bridge
+        if cls.is_dead_bug(id_):
+            return cls.dead_bug
         if cls.is_jumping_jack(id_):
             return cls.jumping_jack
         if cls.is_high_knees(id_):
@@ -106,8 +128,11 @@ class ExerciseKind:
             or cls.is_reverse_lunge(id_)
             or cls.is_plank(id_)
             or cls.is_jumping_jack(id_)
+            or cls.is_crunch(id_)
             or cls.is_high_knees(id_)
             or cls.is_glute_bridge(id_)
+            or cls.is_side_bridge(id_)
+            or cls.is_dead_bug(id_)
         )
 
     @classmethod
@@ -133,7 +158,9 @@ class ExerciseKind:
             return 0
         if cls.is_jumping_jack(id_) or cls.is_high_knees(id_):
             return 30
-        if cls.is_plank(id_):
+        if cls.is_dead_bug(id_):
+            return 30
+        if cls.is_plank(id_) or cls.is_side_bridge(id_):
             return 45
         return 60
 
@@ -147,6 +174,10 @@ class ExerciseKind:
             return cls.reverse_lunge_label
         if cls.is_plank(id_):
             return cls.plank_label
+        if cls.is_side_bridge(id_):
+            return cls.side_bridge_label
+        if cls.is_dead_bug(id_):
+            return cls.dead_bug_label
         if cls.is_jumping_jack(id_):
             return cls.jumping_jack_label
         if cls.is_crunch(id_):
@@ -179,4 +210,8 @@ class ExerciseKind:
             return cls.crunch_demo_dir
         if cls.is_high_knees(id_):
             return cls.high_knees_demo_dir
+        if cls.is_glute_bridge(id_):
+            return cls.glute_bridge_demo_dir
+        if cls.is_dead_bug(id_):
+            return cls.dead_bug_demo_dir
         return None

@@ -1,0 +1,233 @@
+{
+  "id": "dead_bug_white_mannequin",
+  "version": 3,
+  "status": "approved",
+  "exerciseId": "dead_bug",
+  "aliases": [
+    "dead_bug",
+    "死虫式"
+  ],
+  "view": "side",
+  "playback": "immediate",
+  "frameCount": 24,
+  "durationMs": 2200,
+  "pixelSize": {
+    "w": 240,
+    "h": 320
+  },
+  "phases": [
+    {
+      "frames": [
+        0,
+        0
+      ],
+      "name": "tabletop"
+    },
+    {
+      "frames": [
+        1,
+        4
+      ],
+      "name": "extend_A"
+    },
+    {
+      "frames": [
+        4,
+        5
+      ],
+      "name": "peak_A"
+    },
+    {
+      "frames": [
+        6,
+        10
+      ],
+      "name": "retract_A"
+    },
+    {
+      "frames": [
+        11,
+        12
+      ],
+      "name": "switch"
+    },
+    {
+      "frames": [
+        13,
+        16
+      ],
+      "name": "extend_B"
+    },
+    {
+      "frames": [
+        16,
+        17
+      ],
+      "name": "peak_B"
+    },
+    {
+      "frames": [
+        18,
+        22
+      ],
+      "name": "retract_B"
+    },
+    {
+      "frames": [
+        23,
+        23
+      ],
+      "name": "return"
+    }
+  ],
+  "avoid": [
+    "lumbar arch",
+    "slamming limbs",
+    "sit-up curl",
+    "single-side only"
+  ],
+  "keyframes": {
+    "start": "arms up + knees tabletop, low back glued",
+    "peak_A": "near arm near ear + far leg hover straight",
+    "peak_B": "far arm near ear + near leg hover straight"
+  },
+  "audit": {
+    "start": {
+      "extendA": 0.0,
+      "extendB": 0.0,
+      "farLegDeg": 85.8,
+      "nearLegDeg": 90.0,
+      "nearKneeDeg": 90.0,
+      "farClearPx": 66.0,
+      "nearClearPx": 70.0,
+      "ankleClearPx": 66.0,
+      "lumbarY": 250.0,
+      "shoulderY": 248.0,
+      "nearHandX": 90.0,
+      "nearHandY": 178.0,
+      "farHandX": 98.0,
+      "farHandY": 180.0,
+      "hipY": 250.0,
+      "side": "rest"
+    },
+    "peak_A": {
+      "extendA": 1.0,
+      "extendB": 0.0,
+      "farLegDeg": 179.9,
+      "nearLegDeg": 90.0,
+      "nearKneeDeg": 90.0,
+      "farClearPx": 31.4,
+      "nearClearPx": 70.0,
+      "ankleClearPx": 31.4,
+      "lumbarY": 250.0,
+      "shoulderY": 248.0,
+      "nearHandX": 28.0,
+      "nearHandY": 242.0,
+      "farHandX": 98.0,
+      "farHandY": 180.0,
+      "hipY": 250.0,
+      "side": "A"
+    },
+    "peak_B": {
+      "extendA": 0.0,
+      "extendB": 1.0,
+      "farLegDeg": 85.8,
+      "nearLegDeg": 179.2,
+      "nearKneeDeg": 179.2,
+      "farClearPx": 66.0,
+      "nearClearPx": 34.0,
+      "ankleClearPx": 34.0,
+      "lumbarY": 250.0,
+      "shoulderY": 248.0,
+      "nearHandX": 90.0,
+      "nearHandY": 178.0,
+      "farHandX": 34.0,
+      "farHandY": 244.0,
+      "hipY": 250.0,
+      "side": "B"
+    },
+    "mid_A": {
+      "extendA": 0.844,
+      "extendB": 0.0,
+      "farLegDeg": 168.8,
+      "nearLegDeg": 90.0,
+      "nearKneeDeg": 90.0,
+      "farClearPx": 36.8,
+      "nearClearPx": 70.0,
+      "ankleClearPx": 36.8,
+      "lumbarY": 250.0,
+      "shoulderY": 248.0,
+      "nearHandX": 37.7,
+      "nearHandY": 232.0,
+      "farHandX": 98.0,
+      "farHandY": 180.0,
+      "hipY": 250.0,
+      "side": "A"
+    },
+    "mid_B": {
+      "extendA": 0.0,
+      "extendB": 0.844,
+      "farLegDeg": 85.8,
+      "nearLegDeg": 167.9,
+      "nearKneeDeg": 167.9,
+      "farClearPx": 66.0,
+      "nearClearPx": 39.6,
+      "ankleClearPx": 39.6,
+      "lumbarY": 250.0,
+      "shoulderY": 248.0,
+      "nearHandX": 90.0,
+      "nearHandY": 178.0,
+      "farHandX": 44.0,
+      "farHandY": 234.0,
+      "hipY": 250.0,
+      "side": "B"
+    },
+    "switch": {
+      "extendA": 0.0,
+      "extendB": 0.0,
+      "farLegDeg": 85.8,
+      "nearLegDeg": 90.0,
+      "nearKneeDeg": 90.0,
+      "farClearPx": 66.0,
+      "nearClearPx": 70.0,
+      "ankleClearPx": 66.0,
+      "lumbarY": 250.0,
+      "shoulderY": 248.0,
+      "nearHandX": 90.0,
+      "nearHandY": 178.0,
+      "farHandX": 98.0,
+      "farHandY": 180.0,
+      "hipY": 250.0,
+      "side": "rest"
+    }
+  },
+  "frames": [
+    "frame_00.png",
+    "frame_01.png",
+    "frame_02.png",
+    "frame_03.png",
+    "frame_04.png",
+    "frame_05.png",
+    "frame_06.png",
+    "frame_07.png",
+    "frame_08.png",
+    "frame_09.png",
+    "frame_10.png",
+    "frame_11.png",
+    "frame_12.png",
+    "frame_13.png",
+    "frame_14.png",
+    "frame_15.png",
+    "frame_16.png",
+    "frame_17.png",
+    "frame_18.png",
+    "frame_19.png",
+    "frame_20.png",
+    "frame_21.png",
+    "frame_22.png",
+    "frame_23.png"
+  ],
+  "gifPreview": "dead_bug_white_mannequin.gif",
+  "note": "Wired for DemoGuidePane — approved 2026-10-13",
+  "coachSpec": "主管转发·教练关键帧 2026-10-13"
+}

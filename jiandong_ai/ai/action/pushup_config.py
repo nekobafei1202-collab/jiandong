@@ -47,6 +47,29 @@ class PushupConfig:
     rhythm_score_weight: float = 0.30
     correct_score_threshold: int = 70
     min_effective_range_of_motion: float = 70
+    strict: bool = True
+    # 轻松模式专用：肩线高度滞回兜底。侧拍/半侧拍时肘屈伸平面常与视线
+    # 接近平行，2D 肘角被压扁（实测贴地俯卧撑全周期肘角仅 178→144°），
+    # 纯肘角状态机无法计数；肩点 y 的上下往复是干净的替代深度信号。
+    lenient_shoulder_travel: float = 0.07
+
+    @classmethod
+    def lenient(cls) -> PushupConfig:
+        """轻松模式：计数宽容（更深的肘角容忍、更低置信度、更小 ROM），
+        指导与评分仍按严格标准。
+
+        手机桥只有 ~12fps：confirm_frames=3 + min_state_duration=120ms 意味着
+        每次状态迁移要 ~370ms，快速俯卧撑（1-1.5s/次）的 4 次迁移结构性超时，
+        down→bottom 永远确认不上。因此轻松模式改为单帧确认、无最小停留，
+        防抖改由识别器内的肘角中值平滑负责。"""
+        return cls(
+            strict=False,
+            bottom_elbow_angle=105,
+            minimum_confidence=0.3,
+            min_effective_range_of_motion=45,
+            state_confirm_frames=1,
+            min_state_duration_ms=0,
+        )
 
     @property
     def min_body_line_angle(self) -> float:

@@ -17,6 +17,8 @@ from ..action.action_recognizer import (
     SquatMachineState,
 )
 from ..action.exercise_kind import ExerciseKind
+from ..action.crunch_recognizer import CrunchRecognizer
+from ..action.dead_bug_recognizer import DeadBugRecognizer
 from ..action.glute_bridge_recognizer import GluteBridgeRecognizer
 from ..action.high_knees_recognizer import HighKneesRecognizer
 from ..action.jumping_jack_recognizer import JumpingJackRecognizer
@@ -26,10 +28,13 @@ from ..action.pushup_config import PushupConfig
 from ..action.pushup_frame_data import PushupFrameData, PushupRepTrajectory
 from ..action.pushup_recognizer import PushupRecognizer
 from ..action.reverse_lunge_recognizer import ReverseLungeRecognizer
+from ..action.side_bridge_recognizer import SideBridgeRecognizer
 from ..action.squat_config import SquatConfig
 from ..action.squat_frame_data import SquatFrameData, SquatRepTrajectory
 from ..action.squat_recognizer import SquatRecognizer
 from ..evaluation.action_evaluator import ActionEvaluator, EvaluationResult, SquatEvaluationResult
+from ..evaluation.crunch_evaluator import CrunchEvaluator
+from ..evaluation.dead_bug_evaluator import DeadBugEvaluator
 from ..evaluation.glute_bridge_evaluator import GluteBridgeEvaluator
 from ..evaluation.high_knees_evaluator import HighKneesEvaluator
 from ..evaluation.jumping_jack_evaluator import JumpingJackEvaluator
@@ -37,6 +42,7 @@ from ..evaluation.personal_baseline import PersonalBaseline
 from ..evaluation.plank_evaluator import PlankEvaluator
 from ..evaluation.pushup_evaluator import PushupEvaluator
 from ..evaluation.reverse_lunge_evaluator import ReverseLungeEvaluator
+from ..evaluation.side_bridge_evaluator import SideBridgeEvaluator
 from ..evaluation.squat_evaluator import SquatEvaluator
 from ..feedback.feedback_service import CoachFeedback, FeedbackService
 from ..pose.mock_pose_detector import MockPoseDetector
@@ -113,6 +119,12 @@ class TrainingPipeline:
             return ReverseLungeRecognizer()
         if ExerciseKind.is_plank(exercise_id):
             return PlankRecognizer()
+        if ExerciseKind.is_crunch(exercise_id):
+            return CrunchRecognizer()
+        if ExerciseKind.is_side_bridge(exercise_id):
+            return SideBridgeRecognizer()
+        if ExerciseKind.is_dead_bug(exercise_id):
+            return DeadBugRecognizer()
         if ExerciseKind.is_jumping_jack(exercise_id):
             return JumpingJackRecognizer()
         if ExerciseKind.is_high_knees(exercise_id):
@@ -131,6 +143,12 @@ class TrainingPipeline:
             return ReverseLungeEvaluator()
         if ExerciseKind.is_plank(exercise_id):
             return PlankEvaluator()
+        if ExerciseKind.is_crunch(exercise_id):
+            return CrunchEvaluator()
+        if ExerciseKind.is_side_bridge(exercise_id):
+            return SideBridgeEvaluator()
+        if ExerciseKind.is_dead_bug(exercise_id):
+            return DeadBugEvaluator()
         if ExerciseKind.is_jumping_jack(exercise_id):
             return JumpingJackEvaluator()
         if ExerciseKind.is_high_knees(exercise_id):
@@ -209,16 +227,25 @@ class TrainingPipeline:
 
     @property
     def completes_by_hold(self) -> bool:
-        return ExerciseKind.is_plank(self._exercise_id)
+        return (
+            ExerciseKind.is_plank(self._exercise_id)
+            or ExerciseKind.is_side_bridge(self._exercise_id)
+            or ExerciseKind.is_dead_bug(self._exercise_id)
+        )
 
     @property
     def hold_elapsed_ms(self) -> int:
-        r = self._recognizer
-        return r.current_hold_ms if isinstance(r, PlankRecognizer) else 0
+        return int(getattr(self._recognizer, "current_hold_ms", 0))
 
     @property
     def hold_target_ms(self) -> int:
-        return PlankConfig.defaults.target_hold_ms
+        return int(
+            getattr(
+                getattr(self._recognizer, "config", None),
+                "target_hold_ms",
+                PlankConfig.defaults.target_hold_ms,
+            )
+        )
 
     @property
     def current_rep_frames(self) -> list[SquatFrameData]:

@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import math
-import tempfile
 import threading
 import time
 from datetime import datetime
-from pathlib import Path
 
 import flet as ft
 
 from jiandong_ai.ai.action.exercise_kind import ExerciseKind
+from jiandong_ai.ai.action.pushup_config import PushupConfig
 from jiandong_ai.ai.session.android_bridge_session import create_pose_session
 from jiandong_ai.ai.session.course_action_queue import CourseActionQueue
 from jiandong_ai.ai.session.training_pipeline import TrainingPipeline
@@ -17,7 +16,7 @@ from jiandong_ai.app.theme import HUD_CANVAS
 from jiandong_ai.models import RecordAction, TrainingRecord
 from jiandong_ai.services.action_guide_catalog import ActionGuideCatalog
 from jiandong_ai.services.mock_service import MockService
-from jiandong_ai.widgets.muscle_map import activation_for_actions, render_muscle_svg
+from jiandong_ai.widgets.muscle_map import write_muscle_svgs
 from jiandong_ai.widgets.pose_overlay import draw_pose_overlay, frame_to_image_src, placeholder_image
 from jiandong_ai.widgets.safe_area import safe_area
 from jiandong_ai.widgets.training_hud import (
@@ -324,12 +323,20 @@ class TrainingView(ft.Container):
     def _sync_pipeline_for_action(self, *, start_if_running: bool) -> None:
         if ExerciseKind.supports_auto_detect(self._action_name):
             self._pipeline.switch_exercise(ExerciseKind.normalize(self._action_name))
+            self._apply_pushup_mode()
             if start_if_running and self._phase in {"running", "paused"}:
                 self._pipeline.start()
                 if self._phase == "paused":
                     self._pipeline.pause()
         else:
             self._pipeline.stop()
+
+    def _apply_pushup_mode(self) -> None:
+        """从全局设置读取严格/轻松模式并热更新俯卧撑配置。"""
+        strict = self._svc.get_strict_mode()
+        self._pipeline.update_pushup_config(
+            PushupConfig() if strict else PushupConfig.lenient()
+        )
 
     def _reset_set_progress(self) -> None:
         self._set_index = 1
@@ -1491,16 +1498,7 @@ class TrainingView(ft.Container):
         return None
 
     def _muscle_svg_srcs(self, action_names: list[str]) -> tuple[str | None, str | None]:
-        try:
-            activation = activation_for_actions(action_names)
-            tmp = Path(tempfile.gettempdir())
-            front = tmp / "jiandong_muscle_front.svg"
-            back = tmp / "jiandong_muscle_back.svg"
-            front.write_text(render_muscle_svg(activation, view="front"), encoding="utf-8")
-            back.write_text(render_muscle_svg(activation, view="back"), encoding="utf-8")
-            return str(front), str(back)
-        except Exception:
-            return None, None
+        return write_muscle_svgs(action_names)
 
     def _rebuild_summary(self) -> None:
         self._hud_safe.visible = True

@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import math
-import tempfile
 from datetime import datetime, timedelta
-from pathlib import Path
 
 import flet as ft
 
 from jiandong_ai.app.theme import ShellColors
 from jiandong_ai.services.mock_service import MockService
 from jiandong_ai.widgets.matte_card import matte_card
-from jiandong_ai.widgets.muscle_map import activation_for_actions, render_muscle_svg
+from jiandong_ai.widgets.muscle_map import write_muscle_svgs
 from jiandong_ai.widgets.section_header import section_header
 from jiandong_ai.widgets.training_hud import (
     build_finished_summary,
@@ -248,17 +246,7 @@ class RecordsView(ft.Container):
                 prev = history[i + 1] if i + 1 < len(history) else None
                 break
 
-        front_src, back_src = None, None
-        try:
-            activation = activation_for_actions([a["name"] for a in actions])
-            tmp = Path(tempfile.gettempdir())
-            front = tmp / "jiandong_muscle_front.svg"
-            back = tmp / "jiandong_muscle_back.svg"
-            front.write_text(render_muscle_svg(activation, view="front"), encoding="utf-8")
-            back.write_text(render_muscle_svg(activation, view="back"), encoding="utf-8")
-            front_src, back_src = str(front), str(back)
-        except Exception:
-            pass
+        front_src, back_src = write_muscle_svgs([a["name"] for a in actions])
 
         def back_to_list() -> None:
             self.content = self._list

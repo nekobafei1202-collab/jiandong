@@ -124,7 +124,10 @@ class PoseTrainingActivity : FragmentActivity() {
         root = FrameLayout(this).apply { setBackgroundColor(CANVAS) }
         previewView = PreviewView(this).apply {
             scaleType = PreviewView.ScaleType.FILL_CENTER
-            implementationMode = PreviewView.ImplementationMode.PERFORMANCE
+            // TextureView composites with the HUD/demo views in the same
+            // pipeline — SurfaceView (PERFORMANCE) flickers under the
+            // frequently-redrawing demo animation and HUD overlays.
+            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         }
         overlay = PoseOverlayView(this)
         root.addView(previewView, match())
@@ -786,6 +789,8 @@ class PoseTrainingActivity : FragmentActivity() {
             "开合跳" to "jumping_jack_white_mannequin",
             "卷腹" to "crunch_white_mannequin",
             "高抬腿" to "high_knees_white_mannequin",
+            "臀桥" to "glute_bridge_white_mannequin",
+            "死虫式" to "dead_bug_white_mannequin",
         )
     }
 }

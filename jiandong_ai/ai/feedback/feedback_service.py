@@ -30,6 +30,12 @@ class FeedbackService:
             return "前腿屈膝下沉，躯干保持直立"
         if ExerciseKind.is_plank(exercise_id):
             return "侧对镜头，身体成一条直线"
+        if ExerciseKind.is_crunch(exercise_id):
+            return "仰卧屈膝，用腹部发力卷起上背"
+        if ExerciseKind.is_side_bridge(exercise_id):
+            return "侧卧单肘撑地，髋部顶起成一条直线"
+        if ExerciseKind.is_dead_bug(exercise_id):
+            return "仰卧抬手抬腿，对侧手脚交替伸展"
         if ExerciseKind.is_jumping_jack(exercise_id):
             return "手脚同时打开，再收回并拢"
         if ExerciseKind.is_high_knees(exercise_id):
@@ -46,6 +52,12 @@ class FeedbackService:
             return "请侧对镜头仰卧，肩背贴地后开始"
         if ExerciseKind.is_plank(exercise_id):
             return "请侧对镜头，双手撑地成一条直线"
+        if ExerciseKind.is_crunch(exercise_id):
+            return "请侧对镜头仰卧，屈膝躺好后开始"
+        if ExerciseKind.is_side_bridge(exercise_id):
+            return "请侧对镜头侧卧，单肘撑地准备"
+        if ExerciseKind.is_dead_bug(exercise_id):
+            return "请仰卧在画面中，让肩、髋和手脚进入镜头"
         if ExerciseKind.is_reverse_lunge(exercise_id):
             return "请侧身站到镜头前"
         return "请站到摄像头前，点击开始训练"
@@ -113,15 +125,18 @@ class FeedbackService:
         pushup = ExerciseKind.is_pushup(exercise_id)
         plank = ExerciseKind.is_plank(exercise_id)
         bridge = ExerciseKind.is_glute_bridge(exercise_id)
+        crunch = ExerciseKind.is_crunch(exercise_id)
+        side = ExerciseKind.is_side_bridge(exercise_id)
+        bug = ExerciseKind.is_dead_bug(exercise_id)
         jack = ExerciseKind.is_jumping_jack(exercise_id)
         knees = ExerciseKind.is_high_knees(exercise_id)
         state = action.machine_state
         if state == SquatMachineState.waiting_person:
             return "未检测到人体" if action.phase == ActionPhase.no_person else "准备中"
         if state == SquatMachineState.standing:
-            if pushup or plank:
-                return "保持" if plank else "平板"
-            if bridge:
+            if pushup or plank or side or bug:
+                return "保持" if (plank or side or bug) else "平板"
+            if bridge or crunch:
                 return "躺平"
             if jack:
                 return "并拢"
@@ -133,7 +148,9 @@ class FeedbackService:
                 return "下压中"
             if bridge:
                 return "顶髋"
-            if plank:
+            if crunch:
+                return "卷起"
+            if plank or side:
                 return "调整"
             return "下蹲中"
         if state == SquatMachineState.bottom:
@@ -141,7 +158,9 @@ class FeedbackService:
                 return "最低点"
             if plank:
                 return "塌腰"
-            if bridge:
+            if side:
+                return "下沉"
+            if bridge or crunch:
                 return "顶点"
             if jack:
                 return "打开"
@@ -153,7 +172,9 @@ class FeedbackService:
                 return "撑起"
             if plank:
                 return "翘臀"
-            if bridge:
+            if side:
+                return "抬高"
+            if bridge or crunch:
                 return "放下"
             if knees:
                 return "落下"
@@ -166,8 +187,14 @@ class FeedbackService:
         if action.phase == ActionPhase.no_person:
             if ExerciseKind.is_glute_bridge(exercise_id):
                 return "请侧对镜头，让肩、髋、膝进入画面"
+            if ExerciseKind.is_crunch(exercise_id):
+                return "请侧对镜头仰卧，让肩、髋、膝进入画面"
             if ExerciseKind.is_plank(exercise_id):
                 return "请侧对镜头，让肩、髋、踝进入画面"
+            if ExerciseKind.is_side_bridge(exercise_id):
+                return "请侧对镜头侧卧，让肩、髋、踝进入画面"
+            if ExerciseKind.is_dead_bug(exercise_id):
+                return "请仰卧在画面中，让肩、髋和手脚进入镜头"
             return "请调整位置，确保全身进入摄像头"
         state = action.machine_state
         if state in (SquatMachineState.waiting_person, SquatMachineState.standing):

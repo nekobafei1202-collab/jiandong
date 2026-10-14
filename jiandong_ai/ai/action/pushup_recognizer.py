@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from statistics import median
 
 from ..pose.keypoint import BodySide, Keypoint
 from ..pose.pose_result import PoseResult
@@ -67,6 +68,11 @@ class PushupRecognizer(ActionRecognizer):
         self._recording_cycle = False
         self._current_frames: list[PushupFrameData] = []
         self._last_trajectory: PushupRepTrajectory | None = None
+        self._angle_window: list[float] = []
+        self._fb_peak_y: float | None = None
+        self._fb_trough_y: float | None = None
+        self._fb_at_bottom = False
+        self._fb_machine_engaged = False
 
     @property
     def config(self) -> PushupConfig:
@@ -97,6 +103,8 @@ class PushupRecognizer(ActionRecognizer):
 
         if not metrics.reliable:
             self._clear_pending()
+            self._angle_window.clear()
+            self._reset_shoulder_fallback(None)
             if self._recording_cycle:
                 if self._form_cue is None:
                     self._form_cue = "请调整位置，确保全身进入摄像头"
@@ -110,6 +118,11 @@ class PushupRecognizer(ActionRecognizer):
 
         angle = metrics.primary_elbow
         assert angle is not None
+        if not self._config.strict:
+            # 轻松模式单帧确认，改用 3 帧中值防抖；_last_elbow 同步为平滑值，
+            # 保证 HUD 与轨迹所见即状态机所用。
+            angle = self._smooth_angle(angle)
+            self._last_elbow = angle
         just_completed = False
 
         self._sample_frame(pose, angle, metrics)
@@ -187,6 +200,13 @@ class PushupRecognizer(ActionRecognizer):
                         self._seal_trajectory(completed=False)
                     self._reset_cycle_tracking(keep_extremes_for_result=True)
 
+        if not self._config.strict:
+            if just_completed:
+                # 肘角状态机已计数，肩线滞回同步回顶部，避免同一次重复计。
+                self._reset_shoulder_fallback(metrics.shoulder_y)
+            else:
+                just_completed = self._shoulder_fallback(metrics)
+
         return self._result(
             phase=(
                 ActionPhase.completed_rep
@@ -195,6 +215,64 @@ class PushupRecognizer(ActionRecognizer):
             ),
             just_completed=just_completed,
         )
+
+    def _reset_shoulder_fallback(self, shoulder_y: float | None) -> None:
+        self._fb_peak_y = shoulder_y
+        self._fb_trough_y = shoulder_y
+        self._fb_at_bottom = False
+        self._fb_machine_engaged = False
+
+    def _shoulder_fallback(self, metrics: _PushupMetrics) -> bool:
+        """轻松模式兜底：肘角被拍摄角度压扁时，用肩点 y 的滞回往复计数。
+
+        仅在肘角状态机本次 excursion 未介入（始终停在 standing/waiting）
+        时才允许计数，避免与状态机重复计同一次。
+        """
+        sy = metrics.shoulder_y
+        if sy is None:
+            return False
+        travel = self._config.lenient_shoulder_travel
+        if self._fb_peak_y is None or self._fb_trough_y is None:
+            self._reset_shoulder_fallback(sy)
+            return False
+        if self._state in (
+            SquatMachineState.down,
+            SquatMachineState.bottom,
+            SquatMachineState.up,
+        ):
+            self._fb_machine_engaged = True
+        if not self._fb_at_bottom:
+            self._fb_peak_y = min(self._fb_peak_y, sy)
+            if sy - self._fb_peak_y >= travel:
+                self._fb_at_bottom = True
+                self._fb_trough_y = sy
+            return False
+        self._fb_trough_y = max(self._fb_trough_y, sy)
+        if self._fb_trough_y - sy < travel * 0.6:
+            return False
+        # 已回升足够：一次 excursion 结束。
+        engaged = self._fb_machine_engaged
+        amplitude = self._fb_trough_y - self._fb_peak_y
+        self._reset_shoulder_fallback(sy)
+        if engaged or amplitude < travel:
+            return False
+        last = self._last_rep_at
+        if last is not None and (
+            int((datetime.now() - last).total_seconds() * 1000)
+            < self._config.min_rep_interval_ms
+        ):
+            return False
+        self._rep_count += 1
+        self._last_rep_at = datetime.now()
+        self._form_cue = None
+        return True
+
+    def _smooth_angle(self, angle: float) -> float:
+        window = self._angle_window
+        window.append(angle)
+        if len(window) > 3:
+            window.pop(0)
+        return float(median(window))
 
     def _begin_cycle(self, angle: float) -> None:
         self._recording_cycle = True
@@ -310,6 +388,11 @@ class PushupRecognizer(ActionRecognizer):
 
     def _maybe_abort(self, metrics: _PushupMetrics) -> bool:
         cue = self._severe_cue(metrics)
+        if not self._config.strict:
+            # 轻松模式：永不中止计数，违规只作为 HUD 提示。
+            if cue is not None:
+                self._form_cue = cue
+            return False
         if cue is None:
             self._violation_frames = 0
             self._pending_violation = None
@@ -363,7 +446,7 @@ class PushupRecognizer(ActionRecognizer):
     def _should_count_rep(self) -> bool:
         if self._form_abort:
             return False
-        if self._static_hips():
+        if self._config.strict and self._static_hips():
             self._form_cue = "半程偷懒"
             self._form_abort = True
             return False
@@ -376,25 +459,26 @@ class PushupRecognizer(ActionRecognizer):
         if not depth_ok or not rom_ok:
             self._form_cue = "半程偷懒"
             return False
-        for f in self._current_frames:
-            cue = self._severe_cue(
-                _PushupMetrics(
-                    left_elbow=f.left_elbow_angle,
-                    right_elbow=f.right_elbow_angle,
-                    primary_elbow=f.primary_elbow_angle,
-                    body_line=f.body_line_angle,
-                    flare=f.elbow_flare_angle,
-                    hip_offset=f.hip_offset,
-                    hip_y=f.hip_y,
-                    shoulder_y=f.shoulder_y,
-                    neck_reach=f.neck_reach,
-                    shrugged=f.shrugged,
-                    reliable=True,
+        if self._config.strict:
+            for f in self._current_frames:
+                cue = self._severe_cue(
+                    _PushupMetrics(
+                        left_elbow=f.left_elbow_angle,
+                        right_elbow=f.right_elbow_angle,
+                        primary_elbow=f.primary_elbow_angle,
+                        body_line=f.body_line_angle,
+                        flare=f.elbow_flare_angle,
+                        hip_offset=f.hip_offset,
+                        hip_y=f.hip_y,
+                        shoulder_y=f.shoulder_y,
+                        neck_reach=f.neck_reach,
+                        shrugged=f.shrugged,
+                        reliable=True,
+                    )
                 )
-            )
-            if cue is not None:
-                self._form_cue = cue
-                return False
+                if cue is not None:
+                    self._form_cue = cue
+                    return False
         last = self._last_rep_at
         if last is None:
             return True
@@ -563,7 +647,14 @@ class PushupRecognizer(ActionRecognizer):
         primary: float | None = None
         arms_ok = False
         if left is not None and right is not None:
-            primary = (left * left_conf + right * right_conf) / (left_conf + right_conf)
+            if not self._config.strict and abs(left - right) > 30:
+                # 轻松模式：两臂角度严重分歧时，低置信臂（侧拍遮挡臂）多半是
+                # 垃圾值，会拉偏加权平均；直接信任高置信臂。
+                primary = left if left_conf >= right_conf else right
+            else:
+                primary = (left * left_conf + right * right_conf) / (
+                    left_conf + right_conf
+                )
             arms_ok = True
         elif left is not None or right is not None:
             primary = left if left is not None else right
@@ -689,7 +780,8 @@ class PushupRecognizer(ActionRecognizer):
             shoulder_y=shoulder.y if shoulder is not None else None,
             neck_reach=neck_reach,
             shrugged=shrugged,
-            reliable=arms_ok and hip_ok,
+            # 严格模式要求髋部可见；轻松模式手臂可信即可（正面拍/髋部出画也能识别）。
+            reliable=arms_ok and (hip_ok if self._config.strict else True),
         )
 
     def reset(self) -> None:
@@ -705,4 +797,6 @@ class PushupRecognizer(ActionRecognizer):
         self._last_flare = None
         self._form_cue = None
         self._last_trajectory = None
+        self._angle_window.clear()
+        self._reset_shoulder_fallback(None)
         self._reset_cycle_tracking()

@@ -35,6 +35,11 @@ class ProfileView(ft.Container):
             value=ThemeController.get_is_dark(),
             active_color=ShellColors.accent,
         )
+        self._strict_switch = ft.Switch(
+            value=self._svc.get_strict_mode(),
+            active_color=ShellColors.accent,
+            on_change=self._toggle_strict_mode,
+        )
         self._theme_icon = ft.Icon(
             ft.Icons.DARK_MODE if ThemeController.get_is_dark() else ft.Icons.LIGHT_MODE,
             color=ShellColors.accent,
@@ -57,6 +62,8 @@ class ProfileView(ft.Container):
         self._avatar_letter.color = ShellColors.text
         self._dark_switch.value = ThemeController.get_is_dark()
         self._dark_switch.active_color = ShellColors.accent
+        self._strict_switch.value = self._svc.get_strict_mode()
+        self._strict_switch.active_color = ShellColors.accent
         self._theme_icon.name = (
             ft.Icons.DARK_MODE if ThemeController.get_is_dark() else ft.Icons.LIGHT_MODE
         )
@@ -109,6 +116,7 @@ class ProfileView(ft.Container):
                         self._menu_group_custom(
                             [
                                 self._theme_menu_item(),
+                                self._strict_menu_item(),
                                 self._menu_item("无障碍训练", on_tap=self._show_accessibility),
                                 self._menu_item("设置", on_tap=None, subtitle="即将上线"),
                                 self._menu_item("关于", on_tap=self._show_about),
@@ -133,6 +141,48 @@ class ProfileView(ft.Container):
                 expand=True,
             )
         ]
+
+    def _strict_menu_item(self) -> ft.Control:
+        sc = ShellColors
+        return ft.Container(
+            padding=ft.Padding.symmetric(horizontal=16, vertical=10),
+            content=ft.Row(
+                [
+                    ft.Row(
+                        [
+                            ft.Icon(ft.Icons.FACT_CHECK, color=sc.accent, size=22),
+                            ft.Column(
+                                [
+                                    ft.Text(
+                                        "严格纠错模式",
+                                        size=15,
+                                        weight=ft.FontWeight.W_500,
+                                        color=sc.text,
+                                    ),
+                                    ft.Text(
+                                        "开启后姿势不标准将不计数；关闭则宽松计数并给出改进建议",
+                                        size=12,
+                                        color=sc.text_secondary,
+                                    ),
+                                ],
+                                spacing=2,
+                                expand=True,
+                                tight=True,
+                            ),
+                        ],
+                        spacing=12,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        expand=True,
+                    ),
+                    self._strict_switch,
+                ],
+                spacing=12,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+        )
+
+    def _toggle_strict_mode(self, e: ft.ControlEvent) -> None:
+        self._svc.set_strict_mode(bool(self._strict_switch.value))
 
     def _theme_menu_item(self) -> ft.Control:
         sc = ShellColors

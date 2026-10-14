@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import time
 from datetime import datetime
 
 import flet as ft
@@ -23,8 +25,55 @@ class HomeView(ft.Container):
         self._svc = MockService.instance()
         self._scroll = ft.Column(spacing=0, scroll=ft.ScrollMode.AUTO, expand=True)
         self.content = self._scroll
+        self._carousel_index = 0
+        self._carousel_touch = time.time()
+        self._page_view: ft.PageView | None = None
+        self._dots_row: ft.Row | None = None
+        self._autoplay_started = False
         self._svc.on_plan_changed(self.refresh)
         self.refresh()
+        self._start_autoplay()
+
+    def _start_autoplay(self) -> None:
+        if self._autoplay_started:
+            return
+        self._autoplay_started = True
+        try:
+            self._host.run_task(self._autoplay)
+        except Exception:
+            self._autoplay_started = False
+
+    async def _autoplay(self) -> None:
+        while True:
+            await asyncio.sleep(1)
+            try:
+                pv = self._page_view
+                if pv is None or pv.page is None or len(pv.controls) < 2:
+                    continue
+                if time.time() - self._carousel_touch < 8:
+                    continue
+                await pv.jump_to_page((self._carousel_index + 1) % len(pv.controls))
+            except Exception:
+                continue
+
+    def _on_carousel_change(self, e: ft.ControlEvent) -> None:
+        self._carousel_index = e.control.selected_index
+        self._carousel_touch = time.time()
+        self._update_dots()
+
+    def _update_dots(self) -> None:
+        row = self._dots_row
+        if row is None:
+            return
+        sc = ShellColors
+        for i, dot in enumerate(row.controls):
+            active = i == self._carousel_index
+            dot.width = 18 if active else 6
+            dot.bgcolor = sc.accent if active else sc.border
+        try:
+            row.update()
+        except Exception:
+            pass
 
     def on_show(self) -> None:
         self.refresh()
@@ -80,11 +129,9 @@ class HomeView(ft.Container):
         percent = round(progress * 100)
         stats = self._svc.get_today_stats()
         week_count = sum(1 for w in self._svc.get_weekly_stats() if w.minutes > 0)
-        recommended = self._svc.get_recommended_workouts()
         quick = self._svc.get_quick_exercises()[:3]
         continue_training = done < goal
         next_action = next((a for a, d in plan if not d), plan[0][0] if plan else "深蹲")
-        hero = recommended[0] if recommended else None
         streak = self._svc.get_streak_days()
         prog_ms = duration_ms(self._host, PROGRESS_MS)
 
@@ -145,18 +192,20 @@ class HomeView(ft.Container):
             ),
         ]
 
-        if hero is not None:
-            children.append(
-                ft.Container(
-                    padding=ft.Padding.only(left=20, top=12, right=20, bottom=8),
-                    content=ft.Container(
+        courses = self._svc.get_courses()
+        if courses:
+            cards: list[ft.Control] = []
+            for course in courses:
+                cards.append(
+                    ft.Container(
                         border_radius=SHELL_RADIUS_CARD,
                         clip_behavior=ft.ClipBehavior.HARD_EDGE,
+                        margin=ft.Margin.only(left=20, right=20),
                         height=180,
                         content=ft.Stack(
                             [
                                 course_cover(
-                                    exercise=hero,
+                                    exercise=course,
                                     height=180,
                                     show_bottom_fade=True,
                                     apply_matte_overlay=False,
@@ -168,25 +217,25 @@ class HomeView(ft.Container):
                                     content=ft.Column(
                                         [
                                             ft.Text(
-                                                hero.name,
+                                                course.name,
                                                 size=20,
                                                 weight=ft.FontWeight.W_700,
                                                 color="white",
                                             ),
                                             ft.Text(
-                                                f"{hero.duration} 分钟 · {hero.difficulty}",
+                                                f"{course.duration} 分钟 · {course.difficulty}",
                                                 size=13,
-                                                color="#FFFFFFD9",
+                                                color="#EAFBF3",
                                             ),
                                             ft.Container(height=8),
                                             ft.OutlinedButton(
                                                 "查看课程",
                                                 style=ft.ButtonStyle(
-                                                    color="white",
-                                                    side=ft.BorderSide(1, "#FFFFFFB3"),
+                                                    color="#EAFBF3",
+                                                    side=ft.BorderSide(1, "#EAFBF3B3"),
                                                     shape=ft.RoundedRectangleBorder(radius=999),
                                                 ),
-                                                on_click=lambda e: self._open_course(hero),
+                                                on_click=lambda e, c=course: self._open_course(c),
                                             ),
                                         ],
                                         spacing=4,
@@ -195,6 +244,40 @@ class HomeView(ft.Container):
                                 ),
                             ]
                         ),
+                    )
+                )
+            sc = ShellColors
+            self._carousel_index = min(self._carousel_index, len(cards) - 1)
+            dots = [
+                ft.Container(
+                    width=18 if i == self._carousel_index else 6,
+                    height=6,
+                    border_radius=999,
+                    bgcolor=sc.accent if i == self._carousel_index else sc.border,
+                    animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
+                )
+                for i in range(len(cards))
+            ]
+            self._dots_row = ft.Row(
+                dots,
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=6,
+                tight=True,
+            )
+            self._page_view = ft.PageView(
+                controls=cards,
+                height=180,
+                selected_index=self._carousel_index,
+                on_change=self._on_carousel_change,
+            )
+            children.append(
+                ft.Container(
+                    padding=ft.Padding.only(top=12, bottom=8),
+                    content=ft.Column(
+                        [self._page_view, self._dots_row],
+                        spacing=8,
+                        tight=True,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
                 )
             )
@@ -339,7 +422,7 @@ class HomeView(ft.Container):
         )
 
         featured_cards: list[ft.Control] = []
-        for w in recommended:
+        for w in courses:
             card = matte_card(
                 ft.Column(
                     [

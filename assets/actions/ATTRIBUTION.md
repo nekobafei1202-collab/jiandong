@@ -42,6 +42,7 @@ applicable; see `ATTRIBUTION.md` in that repository.
 | `hamstring_stretch.png` | 腿后侧拉伸 | `hamstring-stretch` | 2 |
 | `cat_cow.png` | 腰背放松(猫牛式) | `cat-cow-stretch` | 2 |
 | `quad_stretch.png` | 腿部拉伸(股四头) | `standing-quad-stretch` | 2 |
+| `crunch.png` | 卷腹 | `crunch` | 2 |
 
 颈部放松 / 肩颈拉伸 / 呼吸调整 上游无合适插画，暂共用 `stretch.png`。
 

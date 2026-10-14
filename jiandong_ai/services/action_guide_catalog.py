@@ -124,28 +124,6 @@ class ActionGuideCatalog:
             ),
             target="臀大肌、腘绳肌",
         ),
-        "提踵": ActionGuide(
-            name="提踵",
-            image_asset=f"{_DIR}/calf_raise.png",
-            summary="提踵站立抬起脚跟，锻炼小腿三头肌，有助于踝关节力量与跑步稳定。",
-            cues=(
-                "脚掌支撑，缓慢抬起脚跟",
-                "顶点稍停再放下",
-                "膝盖保持微直但不要锁死",
-            ),
-            target="腓肠肌、比目鱼肌",
-        ),
-        "抬臂": ActionGuide(
-            name="抬臂",
-            image_asset=f"{_DIR}/upper.png",
-            summary="抬臂动作活动肩关节与上背，常用于热身或肩带控制练习。",
-            cues=(
-                "肩胛下沉，避免耸肩",
-                "手臂抬起时肋骨不要过分外翻",
-                "动作平滑，左右对称",
-            ),
-            target="肩带、上背",
-        ),
         "平板支撑": ActionGuide(
             name="平板支撑",
             image_asset=f"{_DIR}/plank.png",
@@ -160,7 +138,7 @@ class ActionGuideCatalog:
         ),
         "卷腹": ActionGuide(
             name="卷腹",
-            image_asset=f"{_DIR}/core.png",
+            image_asset=f"{_DIR}/crunch.png",
             summary="卷腹训练腹直肌，上背离地、下背贴地，用腹部发力而非甩头。",
             cues=(
                 "下巴微收，不要用力扯脖子",
@@ -190,29 +168,6 @@ class ActionGuideCatalog:
                 "不要塌肩或扭腰",
             ),
             target="腹斜肌、臀中肌",
-        ),
-        "俯身划船": ActionGuide(
-            name="俯身划船",
-            image_asset=f"{_DIR}/row.png",
-            summary="俯身划船模拟拉类动作，强化上背与肱二头肌，改善含胸圆肩趋势。",
-            cues=(
-                "髋铰链俯身，腰背保持中立",
-                "肘部贴近身体向后拉",
-                "肩胛主动后收下沉",
-                "不要靠甩腰借力",
-            ),
-            target="背阔肌、菱形肌、肱二头肌",
-        ),
-        "手臂环绕": ActionGuide(
-            name="手臂环绕",
-            image_asset=f"{_DIR}/arm_circles.png",
-            summary="手臂环绕用于激活肩关节活动度，适合训练前肩带热身。",
-            cues=(
-                "幅度由小到大",
-                "肩部放松下沉",
-                "正反方向各做若干次",
-            ),
-            target="肩关节活动度",
         ),
         "肩部拉伸": ActionGuide(
             name="肩部拉伸",

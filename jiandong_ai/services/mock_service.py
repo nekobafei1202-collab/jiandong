@@ -37,6 +37,7 @@ class MockService:
         self._history: list[TrainingRecord] | None = None
         self._custom_plan: CustomPlan | None = None
         self._plan_done: list[bool] = [True, True, False]
+        self._strict_mode = False
         self._store_available = False
         self._store_path: Path | None = None
         self._plan_listeners: list[Callable[[], None]] = []
@@ -92,6 +93,16 @@ class MockService:
                 for e in history
                 if isinstance(e, dict)
             ]
+        strict = data.get("strict_mode")
+        if isinstance(strict, bool):
+            self._strict_mode = strict
+
+    def get_strict_mode(self) -> bool:
+        return self._strict_mode
+
+    def set_strict_mode(self, value: bool) -> None:
+        self._strict_mode = bool(value)
+        self._save()
 
     def _save(self) -> None:
         if not self._store_available or self._store_path is None:
@@ -103,6 +114,7 @@ class MockService:
                     "done": self._plan_done,
                 },
                 "history": [r.to_json() for r in self._ensure_history()],
+                "strict_mode": self._strict_mode,
             }
             self._store_path.write_text(
                 json.dumps(payload, ensure_ascii=False, indent=2),
@@ -194,7 +206,6 @@ class MockService:
             "深蹲": "15 个",
             "俯卧撑": "12 个",
             "开合跳": "30 个",
-            "抬臂": "20 个",
             "平板支撑": "30 秒",
         }.get(action, "")
 
@@ -220,7 +231,7 @@ class MockService:
                 body_part="下肢",
                 description="聚焦臀腿力量，改善稳定与爆发力。",
                 actions=("热身", "深蹲", "弓步蹲", "臀桥", "拉伸"),
-                cover_asset="assets/images/courses/featured_squat.png",
+                cover_asset="assets/images/courses/c_002.png",
             ),
             Exercise(
                 id="w_003",
@@ -231,12 +242,12 @@ class MockService:
                 body_part="全身",
                 description="放松筋膜，缓解训练后的紧绷感。",
                 actions=("颈部放松", "肩部拉伸", "髋部打开", "腿后侧拉伸"),
-                cover_asset="assets/images/courses/featured_yoga.png",
+                cover_asset="assets/images/courses/c_005.png",
             ),
         ]
 
     def get_quick_exercises(self) -> list[str]:
-        return ["深蹲", "俯卧撑", "开合跳", "抬臂", "平板支撑"]
+        return ["深蹲", "开合跳", "俯卧撑", "平板支撑"]
 
     def get_courses(self, category: str = "全部") -> list[Exercise]:
         all_courses = [
@@ -248,7 +259,7 @@ class MockService:
                 category="新手",
                 body_part="全身",
                 description="适合零基础用户的入门课程，动作简单、节奏可控。",
-                actions=("热身", "深蹲", "开合跳", "抬臂", "拉伸"),
+                actions=("热身", "深蹲", "开合跳", "卷腹", "拉伸"),
                 cover_asset="assets/images/courses/c_001.png",
             ),
             Exercise(
@@ -259,7 +270,7 @@ class MockService:
                 category="下肢",
                 body_part="下肢",
                 description="强化下肢肌群，提升日常走路与跑步支撑力。",
-                actions=("热身", "深蹲", "弓步", "提踵", "拉伸"),
+                actions=("热身", "深蹲", "弓步蹲", "臀桥", "拉伸"),
                 cover_asset="assets/images/courses/c_002.png",
             ),
             Exercise(
@@ -281,7 +292,7 @@ class MockService:
                 category="上肢",
                 body_part="上肢",
                 description="针对肩背手臂的力量与塑形课程。",
-                actions=("热身", "俯身划船", "俯卧撑", "手臂环绕", "拉伸"),
+                actions=("热身", "俯卧撑", "平板支撑", "拉伸"),
                 cover_asset="assets/images/courses/c_004.png",
             ),
             Exercise(

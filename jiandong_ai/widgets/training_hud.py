@@ -659,7 +659,9 @@ _ACTION_ICON_ASSETS = {
     "reverse_lunge": "assets/actions/lunge.png",
     "plank": "assets/actions/plank.png",
     "jumping_jack": "assets/actions/cardio.png",
-    "crunch": "assets/actions/core.png",
+    "crunch": "assets/actions/crunch.png",
+    "side_bridge": "assets/actions/core.png",
+    "dead_bug": "assets/actions/dead_bug.png",
     "high_knees": "assets/actions/high_knees.png",
     "glute_bridge": "assets/actions/lower_body.png",
 }

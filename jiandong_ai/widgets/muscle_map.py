@@ -24,6 +24,8 @@ _ACTION_MUSCLES: dict[str, dict[str, int]] = {
     "plank": {"CORE": 3, "OBLIQUES": 2, "SHOULDERS_FRONT": 2, "BACK_LOWER": 1, "GLUTES": 1},
     "jumping_jack": {"CALVES": 2, "QUADS": 2, "SHOULDERS_SIDE": 2, "GLUTES": 1, "CORE": 1},
     "crunch": {"CORE": 3, "OBLIQUES": 2},
+    "side_bridge": {"CORE": 3, "OBLIQUES": 3, "GLUTES": 1, "SHOULDERS_SIDE": 1},
+    "dead_bug": {"CORE": 3, "OBLIQUES": 2, "SHOULDERS_FRONT": 1},
     "high_knees": {"QUADS": 2, "CALVES": 2, "CORE": 2, "GLUTES": 1},
     "glute_bridge": {"GLUTES": 3, "HAMSTRINGS": 2, "BACK_LOWER": 2, "CORE": 1},
 }
@@ -65,3 +67,25 @@ def render_muscle_svg(activation: dict[str, int], *, view: str = "front") -> str
         parts.append(f'<path id="{m["id"]}" d="{m["d"]}" fill="{color}"/>')
     parts.append("</svg>")
     return "".join(parts)
+
+
+def write_muscle_svgs(action_names: list[str]) -> tuple[str | None, str | None]:
+    """Render front/back SVGs to content-hashed temp files (unique name per
+    action set, so the Flutter image cache never serves a stale body)."""
+    import hashlib
+    import tempfile
+    from pathlib import Path
+
+    try:
+        activation = activation_for_actions(action_names)
+        digest = hashlib.md5(
+            "|".join(sorted(f"{g}:{v}" for g, v in activation.items())).encode()
+        ).hexdigest()[:10]
+        tmp = Path(tempfile.gettempdir())
+        front = tmp / f"jiandong_muscle_front_{digest}.svg"
+        back = tmp / f"jiandong_muscle_back_{digest}.svg"
+        front.write_text(render_muscle_svg(activation, view="front"), encoding="utf-8")
+        back.write_text(render_muscle_svg(activation, view="back"), encoding="utf-8")
+        return str(front), str(back)
+    except Exception:
+        return None, None

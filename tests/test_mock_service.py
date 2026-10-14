@@ -23,6 +23,26 @@ def test_mock_service_plan_persist(tmp_path):
     assert svc2.get_today_plan()[0][1] is True
 
 
+def test_strict_mode_defaults_and_persists(tmp_path):
+    MockService._instance = None
+    svc = MockService.instance()
+    svc.init(tmp_path)
+    assert svc.get_strict_mode() is False
+
+    svc.set_strict_mode(True)
+    assert svc.get_strict_mode() is True
+
+    svc.set_strict_mode(False)
+    assert svc.get_strict_mode() is False
+
+    svc.set_strict_mode(True)
+    # reload
+    MockService._instance = None
+    svc2 = MockService.instance()
+    svc2.init(tmp_path)
+    assert svc2.get_strict_mode() is True
+
+
 def test_add_history(tmp_path):
     MockService._instance = None
     svc = MockService.instance()

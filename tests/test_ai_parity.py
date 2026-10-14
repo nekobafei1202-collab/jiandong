@@ -63,7 +63,8 @@ def test_exercise_kind_normalize_and_manual():
     assert ExerciseKind.normalize("俯卧撑") == ExerciseKind.pushup
     assert ExerciseKind.normalize("弓步蹲") == ExerciseKind.reverse_lunge
     assert ExerciseKind.supports_auto_detect("深蹲")
-    assert ExerciseKind.is_manual_complete("卷腹")
+    # 卷腹已接入自动识别（躯干屈曲角度状态机）。
+    assert not ExerciseKind.is_manual_complete("卷腹")
     assert ExerciseKind.display_name("glute_bridge") == "臀桥"
 
 

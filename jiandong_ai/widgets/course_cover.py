@@ -124,11 +124,17 @@ def course_cover(
     ]
     if src:
         layers.append(
-            ft.Image(
-                src=src,
-                fit=ft.BoxFit.COVER,
-                expand=True,
-                error_content=cover_placeholder(expand=True),
+            ft.Container(
+                left=0,
+                right=0,
+                top=0,
+                bottom=0,
+                content=ft.Image(
+                    src=src,
+                    fit=ft.BoxFit.COVER,
+                    expand=True,
+                    error_content=cover_placeholder(expand=True),
+                ),
             )
         )
     else:
@@ -168,7 +174,8 @@ def action_thumb(name: str, *, size: float = 56) -> ft.Control:
         height=size,
         border_radius=12,
         clip_behavior=ft.ClipBehavior.HARD_EDGE,
-        bgcolor=ShellColors.surface_muted,
+        # 动作图是深色线条透明底，固定浅色底保证深色主题下可读
+        bgcolor="#EEF0F3",
         content=ft.Image(
             src=src or "",
             fit=ft.BoxFit.COVER,

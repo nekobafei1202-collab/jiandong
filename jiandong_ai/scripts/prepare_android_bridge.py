@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import re
 import shutil
+import socket
 from pathlib import Path
+
+# Large AAR/model downloads: never let a blocked endpoint hang forever.
+socket.setdefaulttimeout(120)
 
 ROOT = Path(__file__).resolve().parents[2]
 FLUTTER = ROOT / "build" / "flutter"
@@ -30,6 +34,93 @@ def _copy_models(assets: Path) -> None:
                 f"Missing {src}. Download MediaPipe pose_landmarker_full.task "
                 "(SHA256 4EAA5EB7A98365221087693FCC286334CF0858E2EB6E15B506AA4A7ECDCEC4AD)."
             )
+
+
+def _copy_kws_models(assets: Path) -> None:
+    """sherpa-onnx KWS model + keywords.txt for VoiceCommandBridge."""
+    src = MODELS / "kws"
+    dest = assets / "kws"
+    dest.mkdir(parents=True, exist_ok=True)
+    names = ("encoder.onnx", "decoder.onnx", "joiner.onnx", "tokens.txt", "keywords.txt")
+    missing = [name for name in names if not (src / name).exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"Missing {missing} under {src}. Run "
+            "`python -m jiandong_ai.scripts.download_kws_model` first."
+        )
+    for name in names:
+        shutil.copy2(src / name, dest / name)
+    print(f"asset kws/ ({len(names)} files)")
+
+
+def _copy_tts_models(assets: Path) -> None:
+    """sherpa-onnx VITS TTS fallback model for TtsAnnouncer (no-engine ROMs)."""
+    src = MODELS / "tts"
+    dest = assets / "tts"
+    dest.mkdir(parents=True, exist_ok=True)
+    names = (
+        "model.onnx", "lexicon.txt", "tokens.txt",
+        "phone.fst", "date.fst", "number.fst", "new_heteronym.fst",
+    )
+    required = ("model.onnx", "lexicon.txt", "tokens.txt")
+    missing = [name for name in required if not (src / name).exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"Missing {missing} under {src}. Run "
+            "`python -m jiandong_ai.scripts.download_tts_model` first."
+        )
+    copied = 0
+    for name in names:
+        if (src / name).exists():
+            shutil.copy2(src / name, dest / name)
+            copied += 1
+    print(f"asset tts/ ({copied} files)")
+
+
+def _copy_serena_prompts(assets: Path) -> None:
+    """Copy only validated audio referenced by the generated Serena manifest."""
+    import json
+    from jiandong_ai.scripts.generate_serena_prompts import valid_wav, prompt_texts, normalize
+    src = ROOT / "assets" / "voice" / "serena"
+    manifest_path = src / "manifest.json"
+    if not manifest_path.exists():
+        raise FileNotFoundError("Generate Serena recordings before packaging: python -m jiandong_ai.scripts.generate_serena_prompts")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("speaker") != "Serena" or manifest.get("schema") != 1 or not manifest.get("clips"):
+        raise ValueError("Invalid Serena manifest")
+    missing = {normalize(text) for text in prompt_texts()} - manifest["clips"].keys()
+    if missing:
+        raise ValueError(f"Serena prompt generation is incomplete: {len(missing)} missing clips")
+    names = set(manifest["clips"].values())
+    for name in names:
+        if not re.fullmatch(r"[a-f0-9]{24}\.wav", name) or not valid_wav(src / name):
+            raise ValueError(f"Missing or invalid Serena recording: {name}")
+    dest = assets / "voice" / "serena"
+    dest.mkdir(parents=True, exist_ok=True)
+    for name in names:
+        shutil.copy2(src / name, dest / name)
+    shutil.copy2(manifest_path, dest / "manifest.json")
+    for name in ("NOTICE.txt", "QWEN-LICENSE.txt"):
+        if (src / name).exists():
+            shutil.copy2(src / name, dest / name)
+    print(f"asset Serena recordings ({len(names)} clips)")
+
+
+def _copy_asr_models(assets: Path) -> None:
+    """SenseVoice ASR + Silero VAD models for AsrBridge."""
+    src = MODELS / "asr"
+    dest = assets / "asr"
+    dest.mkdir(parents=True, exist_ok=True)
+    names = ("model.onnx", "tokens.txt", "silero_vad.onnx")
+    missing = [name for name in names if not (src / name).exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"Missing {missing} under {src}. Run "
+            "`python -m jiandong_ai.scripts.download_asr_model` first."
+        )
+    for name in names:
+        shutil.copy2(src / name, dest / name)
+    print(f"asset asr/ ({len(names)} files)")
 
 
 def _copy_demo_frames(assets: Path) -> None:
@@ -90,6 +181,55 @@ def _ensure_proguard(app: Path) -> None:
         print("proguard ORT rules already present")
 
 
+_SHERPA_AAR_NAME = "sherpa-onnx-1.13.5.aar"
+_SHERPA_AAR_URLS = (
+    # JitPack build of the sherpa-onnx Android AAR (single file, ~49MB).
+    "https://jitpack.io/com/github/k2-fsa/sherpa-onnx/sherpa-onnx/1.13.5/sherpa-onnx-1.13.5.aar",
+    # Official release tarball; the AAR member is extracted from it.
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-v1.13.8-android.tar.bz2",
+)
+
+
+def _ensure_sherpa_aar(app: Path) -> None:
+    """Place the sherpa-onnx AAR under app/libs (idempotent)."""
+    import tarfile
+    import tempfile
+    import urllib.request
+
+    libs = app / "libs"
+    libs.mkdir(parents=True, exist_ok=True)
+    dest = libs / _SHERPA_AAR_NAME
+    if dest.exists() and dest.stat().st_size > 1_000_000:
+        print(f"sherpa-onnx aar already present: {dest.name}")
+        return
+    last_err: Exception | None = None
+    for url in _SHERPA_AAR_URLS:
+        try:
+            print(f"Downloading {url}")
+            if url.endswith(".aar"):
+                urllib.request.urlretrieve(url, dest)
+            else:
+                with tempfile.NamedTemporaryFile(suffix=".tar.bz2", delete=False) as tmp:
+                    tmp_path = Path(tmp.name)
+                try:
+                    urllib.request.urlretrieve(url, tmp_path)
+                    with tarfile.open(tmp_path) as tar:
+                        member = next(m for m in tar.getmembers() if m.name.endswith(".aar"))
+                        extracted = tar.extractfile(member)
+                        if extracted is None:
+                            raise RuntimeError(f"no readable aar in {url}")
+                        dest.write_bytes(extracted.read())
+                finally:
+                    tmp_path.unlink(missing_ok=True)
+            if dest.exists() and dest.stat().st_size > 1_000_000:
+                print(f"sherpa-onnx aar saved: {dest} ({dest.stat().st_size} bytes)")
+                return
+        except Exception as exc:  # noqa: BLE001
+            last_err = exc
+            print(f"  failed: {exc}")
+    raise RuntimeError(f"Could not obtain sherpa-onnx aar: {last_err}")
+
+
 def _ensure_gradle_deps(app_gradle: Path) -> None:
     original = app_gradle.read_text(encoding="utf-8")
     text = original
@@ -104,6 +244,7 @@ def _ensure_gradle_deps(app_gradle: Path) -> None:
         'implementation("androidx.camera:camera-lifecycle:1.3.4")',
         'implementation("androidx.camera:camera-view:1.3.4")',
         'implementation("com.google.mediapipe:tasks-vision:0.10.14")',
+        f'implementation(files("libs/{_SHERPA_AAR_NAME}"))',
     ]
     if all(dep in text for dep in deps):
         if text != original:
@@ -149,10 +290,7 @@ def _ensure_release_proguard(app_gradle: Path) -> None:
 
 
 def _patch_main_activity(main: Path) -> None:
-    text = main.read_text(encoding="utf-8")
-    if "ShellBackForwarder" in text and "OnBackPressedCallback" in text and "isTaskRoot" in text:
-        print(f"MainActivity already patched: {main}")
-        return
+    # 每次从唯一模板生成；旧代码含有类名不代表已经带上本次修复。
     # Flet 1.0 uses FlutterFragmentActivity; rewrite whole file for a reliable hook.
     main.write_text(
         """package com.flet.jiandong_ai
@@ -167,13 +305,19 @@ import androidx.activity.OnBackPressedCallback
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterFragmentActivity
+import java.io.File
 
 class MainActivity : FlutterFragmentActivity() {
     private var poseBridge: PoseCameraBridge? = null
+    private var voiceBridge: VoiceCommandBridge? = null
+    private var asrBridge: AsrBridge? = null
+    private var ttsAnnouncer: TtsAnnouncer? = null
+    private var audioPermissionRequested = false
     private val poseHandler = Handler(Looper.getMainLooper())
     private val posePoll = object : Runnable {
         override fun run() {
             poseBridge?.pollCommands()
+            ensureAudioPermission()
             poseHandler.postDelayed(this, 50)
         }
     }
@@ -190,9 +334,26 @@ class MainActivity : FlutterFragmentActivity() {
             finish()
             return
         }
+        // 进程被系统杀死后，文件标记仍会留下；不能让旧助手/训练占住新进程的麦克风。
+        val voiceDir = File(getExternalFilesDir(null) ?: filesDir, "jiandong_pose")
+        for (name in listOf("training_active.flag", "assistant_active.flag", "asr_ready.flag",
+            "assistant_wake.flag", "assistant_thinking.flag", "voice_session_active.flag",
+            "training_control.json")) File(voiceDir, name).delete()
         poseBridge = PoseCameraBridge(this)
+        val accessibility = getSystemService(android.content.Context.ACCESSIBILITY_SERVICE)
+            as android.view.accessibility.AccessibilityManager
+        val systemVoice = File(getExternalFilesDir(null) ?: filesDir, "jiandong_pose/system_reader.flag")
+        if (accessibility.isEnabled && accessibility.isTouchExplorationEnabled) {
+            systemVoice.parentFile?.mkdirs()
+            systemVoice.writeText("1")
+            File(systemVoice.parentFile, VoiceCommandBridge.FLAG_NAME).writeText("1")
+        } else systemVoice.delete()
         poseHandler.post(posePoll)
+        voiceBridge = VoiceCommandBridge(this).also { it.start() }
+        asrBridge = AsrBridge(this).also { it.start() }
+        ttsAnnouncer = TtsAnnouncer(this).also { it.start() }
         ensureCameraPermission()
+        ensureAudioPermission()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (ShellBackForwarder.requestConsume(this@MainActivity)) {
@@ -217,14 +378,61 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    private fun voiceFlagExists(): Boolean {
+        val dir = File(getExternalFilesDir(null) ?: filesDir, "jiandong_pose")
+        return File(dir, VoiceCommandBridge.FLAG_NAME).exists()
+    }
+
+    private fun ensureAudioPermission() {
+        // Only prompt when the accessibility voice switch is on — the default
+        // user experience must not gain a new permission dialog.
+        if (!voiceFlagExists() || audioPermissionRequested) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            audioPermissionRequested = true
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                REQ_AUDIO,
+            )
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_AUDIO) {
+            val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+            voiceBridge?.onPermissionResult(granted)
+            asrBridge?.onPermissionResult(granted)
+            if (!granted) {
+                val dir = File(getExternalFilesDir(null) ?: filesDir, "jiandong_pose")
+                MediaPipePoseEngine.atomicWrite(File(dir, "training_speech.json"),
+                    org.json.JSONObject().put("seq", System.nanoTime())
+                        .put("text", "麦克风权限未获允许，当前无法接收语音口令。请使用系统读屏，在应用权限中允许麦克风后重新打开应用。")
+                        .put("timestampMs", System.currentTimeMillis()).toString())
+            }
+        }
+    }
+
     override fun onDestroy() {
         poseHandler.removeCallbacks(posePoll)
         poseBridge?.stop()
+        voiceBridge?.stop()
+        asrBridge?.stop()
+        ttsAnnouncer?.stop()
         super.onDestroy()
     }
 
     companion object {
         private const val REQ_CAMERA = 0xC01
+        private const val REQ_AUDIO = 0xA01
     }
 }
 """,
@@ -237,6 +445,16 @@ def _patch_manifest(manifest: Path) -> None:
     import re
 
     text = manifest.read_text(encoding="utf-8")
+    # Voice accessibility mode needs the mic (KWS) and vibration (TTS fallback).
+    for perm in ("RECORD_AUDIO", "VIBRATE"):
+        needle = f'android.permission.{perm}'
+        if needle not in text:
+            text = text.replace(
+                "<application",
+                f'    <uses-permission android:name="{needle}" />\n    <application',
+                1,
+            )
+            print(f"manifest permission added: {perm}")
     # One task only: desktop icon resumes Main instead of spawning a second splash.
     text2, n_main = re.subn(
         r'(android:name="\.MainActivity"[^>]*android:launchMode=")[^"]+(")',
@@ -298,12 +516,17 @@ def main() -> None:
     kotlin_root = app / "src" / "main" / "kotlin"
     assets = app / "src" / "main" / "assets"
     _copy_models(assets)
+    _copy_kws_models(assets)
+    _copy_tts_models(assets)
+    _copy_serena_prompts(assets)
+    _copy_asr_models(assets)
     _copy_demo_frames(assets)
     _copy_kotlin(kotlin_root)
     gradle = app / "build.gradle.kts"
     if not gradle.exists():
         gradle = app / "build.gradle"
     if gradle.exists():
+        _ensure_sherpa_aar(app)
         _ensure_gradle_deps(gradle)
         _ensure_release_proguard(gradle)
     _ensure_proguard(app)

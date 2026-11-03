@@ -38,6 +38,9 @@ class MockService:
         self._custom_plan: CustomPlan | None = None
         self._plan_done: list[bool] = [True, True, False]
         self._strict_mode = False
+        self._voice_accessibility = False
+        self._voice_correction_announce = True
+        self._ai_assistant_enabled = True
         self._store_available = False
         self._store_path: Path | None = None
         self._plan_listeners: list[Callable[[], None]] = []
@@ -96,12 +99,42 @@ class MockService:
         strict = data.get("strict_mode")
         if isinstance(strict, bool):
             self._strict_mode = strict
+        voice = data.get("voice_accessibility")
+        if isinstance(voice, bool):
+            self._voice_accessibility = voice
+        announce = data.get("voice_correction_announce")
+        if isinstance(announce, bool):
+            self._voice_correction_announce = announce
+        assistant = data.get("ai_assistant_enabled")
+        if isinstance(assistant, bool):
+            self._ai_assistant_enabled = assistant
 
     def get_strict_mode(self) -> bool:
         return self._strict_mode
 
     def set_strict_mode(self, value: bool) -> None:
         self._strict_mode = bool(value)
+        self._save()
+
+    def get_voice_accessibility(self) -> bool:
+        return self._voice_accessibility
+
+    def set_voice_accessibility(self, value: bool) -> None:
+        self._voice_accessibility = bool(value)
+        self._save()
+
+    def get_voice_correction_announce(self) -> bool:
+        return self._voice_correction_announce
+
+    def set_voice_correction_announce(self, value: bool) -> None:
+        self._voice_correction_announce = bool(value)
+        self._save()
+
+    def get_ai_assistant_enabled(self) -> bool:
+        return self._ai_assistant_enabled
+
+    def set_ai_assistant_enabled(self, value: bool) -> None:
+        self._ai_assistant_enabled = bool(value)
         self._save()
 
     def _save(self) -> None:
@@ -115,6 +148,9 @@ class MockService:
                 },
                 "history": [r.to_json() for r in self._ensure_history()],
                 "strict_mode": self._strict_mode,
+                "voice_accessibility": self._voice_accessibility,
+                "voice_correction_announce": self._voice_correction_announce,
+                "ai_assistant_enabled": self._ai_assistant_enabled,
             }
             self._store_path.write_text(
                 json.dumps(payload, ensure_ascii=False, indent=2),

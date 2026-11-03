@@ -1,5 +1,18 @@
 # Pose models
 
+## Speech models
+
+Speech model weights are downloaded locally and excluded from Git. Before
+building the Android app with voice support, run these commands from the project root:
+
+```powershell
+.venv/Scripts/python.exe -m jiandong_ai.scripts.download_asr_model
+.venv/Scripts/python.exe -m jiandong_ai.scripts.download_kws_model
+.venv/Scripts/python.exe -m jiandong_ai.scripts.download_tts_model
+```
+
+The scripts populate `models/asr/`, `models/kws/`, and `models/tts/`.
+
 ## RTMPose (default — desktop + Android bridge)
 
 Lightweight ONNX pair borrowed from [Good-GYM](https://github.com/yo-WASSUP/Good-GYM) (MIT):

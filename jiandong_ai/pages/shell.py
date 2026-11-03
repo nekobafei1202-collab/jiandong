@@ -9,7 +9,14 @@ import flet as ft
 
 from jiandong_ai.app.back_navigation import close_plan_editor_if_open
 from jiandong_ai.app.theme import ShellColors
-from jiandong_ai.ai.session.android_bridge_session import is_android_runtime
+from jiandong_ai.ai.session.android_bridge_session import (
+    is_android_runtime,
+    write_voice_flag,
+)
+from jiandong_ai.ai.session.assistant_session import AssistantSession
+from jiandong_ai.ai.session.voice_session import VoiceCourseSession
+from jiandong_ai.services.ai_assistant import DeepSeekAssistant
+from jiandong_ai.services.body_part_recommender import PART_DISPLAY
 from jiandong_ai.pages.auth.login_page import build_login
 from jiandong_ai.pages.auth.register_page import build_register
 from jiandong_ai.pages.course.course_page import CourseView
@@ -26,13 +33,17 @@ class MainShell(ft.Column):
     """Catalog shell: home default; hide bottom nav on training tab."""
 
     training_tab_index = 2
+    _VOICE_ENABLED_GREETING = "语音辅助模式已开启。可以说：腿部、核心、上肢、背部，或全身。"
 
-    def __init__(self, page: ft.Page, *, initial_index: int = 0) -> None:
+    def __init__(self, page: ft.Page, *, initial_index: int = 0, skip_voice_onboarding: bool = False) -> None:
         super().__init__(expand=True, spacing=0)
         self._host = page
         self._index = initial_index
         self._body = ft.Container(expand=True, bgcolor=ShellColors.canvas)
         self._nav_host = ft.Container(visible=True)
+        self._voice_session = None
+        self._assistant_session = None
+        self._voice_onboarding_done = skip_voice_onboarding
 
         self._views: list[ft.Control] = [
             HomeView(
@@ -50,6 +61,9 @@ class MainShell(ft.Column):
                 on_open_records=lambda: self.go_tab(3),
                 on_open_plan=self._open_plan,
                 on_theme_rebuild=self.apply_theme,
+                on_voice_accessibility_changed=self._on_voice_accessibility_changed,
+                on_ai_assistant_changed=self._on_ai_assistant_changed,
+                on_ai_api_key_changed=self._on_ai_api_key_changed,
             ),
         ]
 
@@ -59,6 +73,168 @@ class MainShell(ft.Column):
         self._back_thread: threading.Thread | None = None
         self._show(self._index)
         self._install_system_back(page)
+        self._maybe_start_voice_session()
+
+    def _maybe_start_voice_session(self) -> None:
+        """无障碍开关打开且处于 Android 运行时才启动语音选课轮询（桌面完全惰性）。"""
+        self.start_voice_session_if_needed()
+
+    def _on_voice_accessibility_changed(self, enabled: bool) -> None:
+        if enabled:
+            self.start_voice_session_if_needed(announce_enabled=True)
+        else:
+            self.stop_voice_session()
+
+    def _on_ai_assistant_changed(self, enabled: bool) -> None:
+        if enabled:
+            self._start_assistant_session_if_needed()
+        else:
+            self._stop_assistant_session()
+
+    def _on_ai_api_key_changed(self, _configured: bool) -> None:
+        """Recreate the client so a saved or cleared key takes effect immediately."""
+        self._stop_assistant_session()
+        self._start_assistant_session_if_needed()
+
+    def start_voice_session_if_needed(self, *, announce_enabled: bool = False) -> bool:
+        """按当前设置启动语音选课会话；重复调用只保留一个会话。"""
+        if not is_android_runtime():
+            return False
+        enabled = MockService.instance().get_voice_accessibility()
+        if not enabled:
+            if self._voice_session is not None:
+                self.stop_voice_session()
+            else:
+                write_voice_flag(False)
+            return False
+        if self._voice_session is not None:
+            return True
+        write_voice_flag(True)
+
+        def _start(actions: list[str], title: str) -> None:
+            def apply() -> None:
+                self._voice_onboarding_done = True
+                self.go_training(actions=list(actions), session_title=title)
+
+            try:
+                self._host.run_thread(apply)
+            except Exception:
+                apply()
+
+        session = VoiceCourseSession(on_start_training=_start)
+        if not session.start():
+            return False
+        self._voice_session = session
+        session.begin(self._VOICE_ENABLED_GREETING if announce_enabled else None)
+        self._start_assistant_session_if_needed()
+        return True
+
+    def _start_assistant_session_if_needed(self) -> bool:
+        """AI 助手是语音辅助的子功能；无选课会话或子开关关闭时不启动。"""
+        if self._assistant_session is not None:
+            return True
+        if not is_android_runtime():
+            return False
+        svc = MockService.instance()
+        if not svc.get_voice_accessibility() or not svc.get_ai_assistant_enabled():
+            return False
+        voice = self._voice_session
+        if voice is None:
+            return False
+
+        def recommend(part: str) -> str:
+            voice.handle_keyword(PART_DISPLAY.get(part, "全身"))
+            # VoiceCourseSession has already announced the detailed recommendation.
+            return ""
+
+        def control(command: str) -> str:
+            if command == "start":
+                def apply() -> None:
+                    self.go_training()
+
+                try:
+                    self._host.run_thread(apply)
+                except Exception:
+                    apply()
+                return "好的，即将开始今日训练。"
+            return "训练中请直接说：暂停训练、继续训练，或结束训练。"
+
+        def query_plan() -> str:
+            actions = svc.get_today_plan_actions()
+            if not actions:
+                return "今天还没有训练计划。"
+            return "今天的训练计划是：" + "、".join(actions) + "。"
+
+        def navigate(destination: str) -> str:
+            def apply() -> None:
+                if destination == "plan":
+                    self._open_plan()
+                else:
+                    self.go_tab({"home": 0, "courses": 1, "profile": 4}[destination])
+            self._host.run_thread(apply)
+            return "好的，正在打开。"
+
+        session = AssistantSession(
+            ai_client=DeepSeekAssistant(),
+            speaker=voice.speak,
+            on_recommend=recommend,
+            on_control=control,
+            on_query_plan=query_plan,
+            on_navigate=navigate,
+            poll_interval=0.05,
+        )
+        if not session.start():
+            return False
+        self._assistant_session = session
+        return True
+
+    def _stop_assistant_session(self) -> None:
+        session = self._assistant_session
+        self._assistant_session = None
+        if session is not None:
+            try:
+                session.stop()
+            except Exception:
+                pass
+
+    def stop_voice_session(self) -> None:
+        """立即停止 Python 轮询并同步 Kotlin 总开关；关闭时保持静默。"""
+        self._stop_assistant_session()
+        session = self._voice_session
+        self._voice_session = None
+        if session is not None:
+            try:
+                session.stop()
+            except Exception:
+                pass
+        if not is_android_runtime():
+            return
+        try:
+            write_voice_flag(False)
+        except Exception:
+            pass
+
+    def _show_voice_onboarding(
+        self,
+        *,
+        action: str | None,
+        actions: list[str] | None,
+        session_title: str | None,
+    ) -> None:
+        from jiandong_ai.pages.training.voice_onboarding_page import (
+            build_voice_onboarding,
+        )
+
+        page = self._host
+
+        def done(_use_voice: bool) -> None:
+            # onboarding 会 remount MainShell；先停掉旧实例的语音会话，避免双消费者。
+            self.stop_voice_session()
+            shell = MainShell(page, skip_voice_onboarding=True)
+            mount(page, shell, safe=False)
+            shell.go_training(action, actions=actions, session_title=session_title)
+
+        mount(page, build_voice_onboarding(page, on_finish=done))
 
     def _bridge_dir(self) -> Path:
         from jiandong_ai.ai.session.android_bridge_session import _default_bridge_dir
@@ -174,8 +350,11 @@ class MainShell(ft.Column):
     ) -> None:
         from jiandong_ai.ai.action.exercise_kind import ExerciseKind
 
-        training: TrainingView = self._views[self.training_tab_index]  # type: ignore[assignment]
+        # 已开启语音辅助时直接进入相机，不能再插入必须手点的引导页。
         svc = MockService.instance()
+        self._voice_onboarding_done = True
+
+        training: TrainingView = self._views[self.training_tab_index]  # type: ignore[assignment]
         start_index = 0
         today = svc.get_today_plan_actions()
         if actions:
@@ -221,6 +400,10 @@ class MainShell(ft.Column):
 
     def _logout_to_login(self) -> None:
         AppSession.clear()
+        self._stop_assistant_session()
+        if self._voice_session is not None:
+            self._voice_session.stop()
+            self._voice_session = None
         page = self._host
 
         def go_register(_: ft.ControlEvent | None = None) -> None:

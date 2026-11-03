@@ -17,6 +17,21 @@ _GLASS_BORDER = "#40FFFFFF"
 _DANGER = "#FF8589"
 
 
+class _LoginRoot(ft.Container):
+    def __init__(self, *, on_mount, on_unmount, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._on_mount = on_mount
+        self._on_unmount = on_unmount
+
+    def did_mount(self) -> None:
+        super().did_mount()
+        self._on_mount()
+
+    def will_unmount(self) -> None:
+        self._on_unmount()
+        super().will_unmount()
+
+
 def _logo_bars() -> ft.Control:
     heights = [16, 28, 44, 28, 16]
     bars = [
@@ -79,6 +94,46 @@ def build_login(page: ft.Page, *, on_success, on_register) -> ft.Control:
 
     agreed = ft.Ref[ft.Checkbox]()
     login_btn = ft.Ref[ft.FilledButton]()
+    voice_guide = None
+
+    def _stop_voice_guide() -> None:
+        nonlocal voice_guide
+        if voice_guide is not None:
+            voice_guide.stop()
+            voice_guide = None
+
+    def _start_voice_guide() -> None:
+        nonlocal voice_guide
+        if voice_guide is not None:
+            return
+        if not MockService.instance().get_voice_accessibility():
+            return
+        from jiandong_ai.ai.session.android_bridge_session import (
+            is_android_runtime,
+            write_voice_flag,
+        )
+
+        if not is_android_runtime():
+            return
+        from jiandong_ai.ai.session.voice_session import LoginVoiceGuide
+
+        write_voice_flag(True)
+
+        def on_voice_login() -> None:
+            def apply() -> None:
+                # 语音用户无需再触摸协议勾选框，之后复用完全相同的登录逻辑。
+                if agreed.current is not None:
+                    agreed.current.value = True
+                submit(None)
+
+            try:
+                page.run_thread(apply)
+            except Exception:
+                apply()
+
+        guide = LoginVoiceGuide(on_login=on_voice_login, poll_interval=0.1)
+        if guide.start():
+            voice_guide = guide
 
     def _sync_login_state() -> None:
         ok = bool(agreed.current and agreed.current.value)
@@ -87,7 +142,7 @@ def build_login(page: ft.Page, *, on_success, on_register) -> ft.Control:
             login_btn.current.color = _TEXT if ok else _TEXT_DISABLED
         page.update()
 
-    def submit(_: ft.ControlEvent) -> None:
+    def submit(_: ft.ControlEvent | None = None) -> None:
         if not (agreed.current and agreed.current.value):
             toast("请先阅读并同意《用户协议》和《隐私政策》")
             return
@@ -97,6 +152,7 @@ def build_login(page: ft.Page, *, on_success, on_register) -> ft.Control:
             error.value = f"账号或密码错误（演示账号 {MOCK_EMAIL} / {MOCK_PASSWORD}）"
             page.update()
             return
+        _stop_voice_guide()
         on_success()
 
     agreement_text = ft.Text(
@@ -255,7 +311,9 @@ def build_login(page: ft.Page, *, on_success, on_register) -> ft.Control:
         scroll=ft.ScrollMode.AUTO,
     )
 
-    return ft.Container(
+    return _LoginRoot(
+        on_mount=_start_voice_guide,
+        on_unmount=_stop_voice_guide,
         expand=True,
         image=ft.DecorationImage(
             src=asset_src("assets/images/login_bg.jpg"),

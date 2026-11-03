@@ -12,6 +12,7 @@ from jiandong_ai.ai.action.pushup_config import PushupConfig
 from jiandong_ai.ai.session.android_bridge_session import create_pose_session
 from jiandong_ai.ai.session.course_action_queue import CourseActionQueue
 from jiandong_ai.ai.session.training_pipeline import TrainingPipeline
+from jiandong_ai.ai.safety_monitor import SafetyMonitor
 from jiandong_ai.app.theme import HUD_CANVAS
 from jiandong_ai.models import RecordAction, TrainingRecord
 from jiandong_ai.services.action_guide_catalog import ActionGuideCatalog
@@ -169,6 +170,12 @@ class TrainingView(ft.Container):
         self._rest_label = ""
         self._rest_manual = False
         self._rest_timer: threading.Timer | None = None
+        self._safety = SafetyMonitor()
+        self._framing_ready = False
+        self._last_framing_at = 0.0
+        self._last_framing_text = ""
+        self._person_missing_since: float | None = None
+        self._pending_pause_reason = ""
 
         self._preview = ft.Image(
             # Native camera path: plain dark placeholder — any text here would
@@ -306,8 +313,51 @@ class TrainingView(ft.Container):
         self._record_saved = False
         self._session_sets_completed = 0
         self._reset_set_progress()
+        if self._svc.get_voice_accessibility():
+            self._safety.reset_framing()
+            self._safety.reset_safety()
+            self._framing_ready = False
+            self._session.set_listener(self._on_voice_preview_frame)
+            self._last_framing_at = time.monotonic()
+            self._last_framing_text = ""
         self._publish_native_queue_state()
         return True
+
+    def _voice_announce(self, text: str) -> None:
+        if self._svc.get_voice_accessibility() and hasattr(self._session, "announce"):
+            self._session.announce(text)
+
+    def _voice_action_instructions(self) -> str:
+        guide = ActionGuideCatalog.for_name(self._action_name)
+        if ExerciseKind.is_guide_only(self._action_name):
+            instruction = (
+                "请原地慢步，并轻轻活动肩、肘和脚踝。"
+                if self._action_name == "热身" else
+                "请放松呼吸，轻轻伸展刚才训练的部位，不要拉到疼痛。"
+            )
+            return f"当前是{self._action_name}。{instruction}完成后说继续训练，进入下一步。"
+        return f"当前动作，{guide.name}。{guide.summary}。{'。'.join(guide.cues[:2])}。"
+
+    def _on_voice_preview_frame(self, frame, pose) -> None:
+        if self._phase != "preview":
+            return
+        if self._framing_ready:
+            if pose.has_person:
+                return
+            self._framing_ready = False
+            self._safety.reset_framing()
+            self._publish_native_queue_state()
+        text = self._safety.framing_check(pose)
+        now = time.monotonic()
+        if self._safety.framing_passed:
+            self._framing_ready = True
+            self._publish_native_queue_state()
+            self._voice_announce("全身已进入画面，位置合适。" + self._voice_action_instructions()
+                                 + "准备好后说开始训练。")
+        elif text and now - self._last_framing_at >= (25 if text == self._last_framing_text else 15):
+            self._last_framing_at = now
+            self._last_framing_text = text
+            self._voice_announce(text)
 
     def _default_session_title(self) -> str:
         if self._queue.is_multi:
@@ -356,6 +406,8 @@ class TrainingView(ft.Container):
 
     def _apply_queue_action(self, *, reset_preview: bool = False) -> None:
         self._clear_rest_state()
+        self._person_missing_since = None
+        self._safety.reset_safety()
         self._action_name = self._queue.current
         if hasattr(self._session, "configure"):
             self._session.configure(action_name=self._action_name)
@@ -380,7 +432,7 @@ class TrainingView(ft.Container):
                 if ExerciseKind.supports_auto_detect(self._action_name):
                     self._session.set_listener(self._on_frame)
                 else:
-                    self._session.set_listener(None)
+                    self._session.set_listener(self._on_frame if self._svc.get_voice_accessibility() else None)
             # Push the new queue state so the native label/demo switch at once —
             # also covers auto-advance while the native page stays open.
             if live and (
@@ -392,6 +444,8 @@ class TrainingView(ft.Container):
                 self._publish_native_queue_state()
             if self._session.detector_available and not native_open:
                 self.launch_native_preview()
+            if live:
+                self._voice_announce(self._voice_action_instructions())
             return
         was_live = self._phase in {"running", "paused"}
         if not was_live:
@@ -475,6 +529,7 @@ class TrainingView(ft.Container):
             title=title,
             subtitle=subtitle,
             action=self._action_name,
+            voice_ready=getattr(self, "_framing_ready", False),
             **self._hud_set_kwargs(),
         )
 
@@ -534,9 +589,10 @@ class TrainingView(ft.Container):
             self._session.set_listener(self._on_frame)
         else:
             self._pipeline.stop()
-            self._session.set_listener(None)
+            self._session.set_listener(self._on_frame if self._svc.get_voice_accessibility() else None)
             self._publish_guide_hud()
         self._quiet_native_host()
+        self._voice_announce("训练已开始。" + self._voice_action_instructions())
 
     def _start_session(self) -> None:
         """Desktop / manual start. Android uses launch_native_preview + begin event."""
@@ -810,6 +866,9 @@ class TrainingView(ft.Container):
         def apply() -> None:
             if not self._resting:
                 return
+            if self._phase == "paused":
+                self._schedule_rest_tick()
+                return
             self._rest_left -= 1
             if self._rest_left <= 0:
                 self._finish_rest()
@@ -928,8 +987,15 @@ class TrainingView(ft.Container):
                 # Tell the native activity the session is done so it closes
                 # itself and reveals the summary page underneath.
                 self._session.publish_hud(
-                    reps=0, score=0, title="", subtitle="", session_done=True
+                    reps=0,
+                    score=0,
+                    title="",
+                    subtitle="",
+                    session_done=True,
+                    summary_text=build_session_summary_text(self._summary_actions()),
                 )
+                self._voice_announce("训练已结束。" + build_session_summary_text(self._summary_actions())
+                                     + "可以直接说训练部位，重新选课。")
             self._rebuild_summary()
         else:
             self._phase = "idle"
@@ -1099,6 +1165,28 @@ class TrainingView(ft.Container):
     def _on_frame(self, frame, pose) -> None:
         if self._phase != "running" or self._resting:
             return
+        if self._svc.get_voice_accessibility():
+            now = time.monotonic()
+            if not pose.has_person:
+                if self._person_missing_since is None:
+                    self._person_missing_since = now
+                if now - self._person_missing_since >= 3:
+                    if hasattr(self._session, "request_control"):
+                        self._pending_pause_reason = "持续看不到你。"
+                        self._session.request_control("pause")
+                    self._person_missing_since = None
+                    return
+            else:
+                self._person_missing_since = None
+            warning = self._safety.safety_check(pose)
+            if warning:
+                if "你还好吗" in warning and hasattr(self._session, "request_control"):
+                    self._pending_pause_reason = "检测到位置突然变化。"
+                    self._session.request_control("pause")
+                    return
+                self._voice_announce(warning)
+        if ExerciseKind.is_guide_only(self._action_name):
+            return
         coach = self._pipeline.process_pose(pose)
         score = self._pipeline.evaluation.score or 0
         reps = self._pipeline.action.rep_count
@@ -1182,6 +1270,8 @@ class TrainingView(ft.Container):
                 if ExerciseKind.supports_auto_detect(self._action_name):
                     self._pipeline.pause()
                 self._phase = "paused"
+                self._voice_announce(self._pending_pause_reason + "已暂停。说继续训练恢复。")
+                self._pending_pause_reason = ""
                 if self._resting:
                     self._publish_rest_hud()
                 elif ExerciseKind.is_guide_only(self._action_name):
@@ -1189,6 +1279,9 @@ class TrainingView(ft.Container):
             elif event == "resume" and self._phase == "paused":
                 self._elapsed_anchor = time.time()
                 self._phase = "running"
+                self._person_missing_since = None
+                self._safety.reset_safety()
+                self._voice_announce("已恢复训练。")
                 if self._resting:
                     # Stay paused on pipeline until rest ends.
                     self._publish_rest_hud()
@@ -1196,18 +1289,42 @@ class TrainingView(ft.Container):
                     self._pipeline.resume()
                     self._session.set_listener(self._on_frame)
                 else:
-                    self._session.set_listener(None)
+                    self._session.set_listener(self._on_frame if self._svc.get_voice_accessibility() else None)
                     self._publish_guide_hud()
+            elif event == "voice_continue":
+                if self._resting or ExerciseKind.is_guide_only(self._action_name) or ExerciseKind.is_manual_complete(self._action_name):
+                    self._on_nav_next()
+                else:
+                    self._voice_announce("当前正在训练。完成当前组后会自动进入休息。")
+            elif event == "voice_repeat":
+                if self._phase == "preview":
+                    self._voice_announce("位置合适，准备好后说开始训练。" if self._framing_ready
+                                         else "正在检查入镜，请让头和脚都进入画面。")
+                else:
+                    self._voice_announce(("当前已暂停。" if self._phase == "paused" else "")
+                                         + self._voice_action_instructions())
+            elif event == "action_next" and self._phase in {"running", "paused"}:
+                self._clear_rest_state()
+                self._advance_or_finish(manual=True)
+            elif event == "action_prev" and self._phase in {"running", "paused"}:
+                if self._queue.has_previous:
+                    self._goto_previous_action()
+                else:
+                    self._voice_announce("当前已经是第一个动作。")
             elif event == "queue_next":
                 # 「下一组」/「下一个」/「跳过休息」depending on state.
                 if self._resting or self._phase in {"running", "paused"}:
                     self._on_nav_next()
+                else:
+                    self._voice_announce("当前尚未开始，请先完成入镜检查。")
             elif event == "queue_prev":
                 # 「上一组」or「上一个」depending on nav mode.
                 if self._phase in {"running", "paused"} and not self._resting:
                     self._on_nav_previous()
             elif event == "stop" and self._phase in {"running", "paused", "preview"}:
                 self._stop_session(save=True, finish=True)
+            elif event == "voice_help":
+                self._announce_voice_help()
             elif event == "close" and self._phase in {"running", "paused", "preview"}:
                 self._stop_session(save=False, finish=False)
                 if self.on_close:
@@ -1217,6 +1334,28 @@ class TrainingView(ft.Container):
             self._host.run_thread(apply)
         except Exception:
             apply()
+
+    def _announce_voice_help(self) -> None:
+        """「帮助」口令：向 hud.json 写一条可用口令说明（TtsAnnouncer 播报）。"""
+        if not self._uses_native_preview() or not hasattr(self._session, "publish_hud"):
+            return
+        from jiandong_ai.ai.session.voice_session import voice_help_text
+
+        if hasattr(self._session, "announce"):
+            state = "当前还在检查位置。" if self._phase == "preview" and not self._framing_ready else ""
+            # 不连续念出紧急口令，避免扬声器回声触发暂停/结束。
+            self._voice_announce(state + "可以说开始训练。暂停、继续、结束这三个口令，后面都加上训练两个字。"
+                                 "热身和拉伸完成后用继续口令。还可以说再说一遍、下一个动作、上一个动作。")
+            return
+
+        self._session.publish_hud(
+            reps=0,
+            score=0,
+            title="语音帮助",
+            subtitle=voice_help_text(in_training=True),
+            action=self._action_name,
+            **self._hud_set_kwargs(),
+        )
 
     def _rebuild_hud(
         self,

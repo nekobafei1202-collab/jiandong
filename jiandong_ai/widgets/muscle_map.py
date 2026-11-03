@@ -31,6 +31,11 @@ _ACTION_MUSCLES: dict[str, dict[str, int]] = {
 }
 
 
+def action_muscle_map() -> dict[str, dict[str, int]]:
+    """动作 key → {肌群组: 强度 1-3} 的公共只读视图（返回拷贝）。"""
+    return {key: dict(groups) for key, groups in _ACTION_MUSCLES.items()}
+
+
 def _action_key(action_name: str) -> str:
     for key in _ACTION_MUSCLES:
         check = getattr(ExerciseKind, f"is_{key}")

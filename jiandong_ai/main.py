@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import flet as ft
@@ -11,6 +12,7 @@ from jiandong_ai.pages.auth.login_page import build_login
 from jiandong_ai.pages.auth.register_page import build_register
 from jiandong_ai.pages.shell import MainShell
 from jiandong_ai.pages.splash.splash_page import build_splash
+from jiandong_ai.services.ai_assistant import configure_deepseek_config_path
 from jiandong_ai.services.mock_service import AppSession, MockService
 from jiandong_ai.widgets.safe_area import mount
 
@@ -31,7 +33,14 @@ def main(page: ft.Page, *, preview: bool = False) -> None:
     page.enable_screenshots = True
 
     svc = MockService.instance()
-    svc.init(_asset_root() / "storage")
+    storage_dir = Path(
+        os.environ.get("FLET_APP_STORAGE_DATA") or (_asset_root() / "storage")
+    )
+    svc.init(storage_dir)
+    from jiandong_ai.ai.session.android_bridge_session import is_android_runtime, _default_bridge_dir
+    if is_android_runtime() and (_default_bridge_dir() / "system_reader.flag").exists():
+        svc.set_voice_accessibility(True)
+    configure_deepseek_config_path(storage_dir / "ai_config.json")
 
     def go_login(_: ft.ControlEvent | None = None) -> None:
         page.bgcolor = ShellColors.canvas

@@ -49,3 +49,18 @@ _now.xml
 _post_install.png
 _run_*.png
 _run_*.xml
+ai_config.json
+
+# Desktop-only speech generation dependencies, downloads and scratch files
+.tts-venv/
+.speech-cache/
+_test_assistant_tmp*/
+
+# Local APK backups and diagnostic recordings
+_backup/
+_diag_videos/
+
+# Download speech model weights with the scripts documented in models/README.md
+models/asr/*.onnx
+models/kws/*.onnx
+models/tts/*.onnx

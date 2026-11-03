@@ -186,6 +186,8 @@ class AndroidBridgePoseSession:
         rest_label: str | None = None,
         rep_target: int | None = None,
         session_done: bool | None = None,
+        summary_text: str | None = None,
+        voice_ready: bool | None = None,
     ) -> None:
         payload = {
             "reps": int(reps),
@@ -197,6 +199,8 @@ class AndroidBridgePoseSession:
         }
         if rep_target is not None:
             payload["repTarget"] = int(rep_target)
+        if voice_ready is not None:
+            payload["voiceReady"] = voice_ready
         if action is not None:
             payload["action"] = str(action)
         if set_nav is not None:
@@ -223,6 +227,8 @@ class AndroidBridgePoseSession:
             payload["restLabel"] = str(rest_label)
         if session_done is not None:
             payload["sessionDone"] = bool(session_done)
+        if summary_text is not None:
+            payload["summaryText"] = str(summary_text)
         try:
             self.bridge_dir.mkdir(parents=True, exist_ok=True)
             self._atomic_write_text(
@@ -231,6 +237,21 @@ class AndroidBridgePoseSession:
             )
         except Exception:
             pass
+
+    def request_control(self, command: str) -> None:
+        self._atomic_write_text(
+            self.bridge_dir / "training_control.json",
+            json.dumps({"seq": time.time_ns(), "type": command}),
+        )
+
+    def announce(self, text: str) -> None:
+        """独立播报通道，避免高频 HUD 覆盖关键操作反馈。"""
+        self.bridge_dir.mkdir(parents=True, exist_ok=True)
+        self._atomic_write_text(
+            self.bridge_dir / "training_speech.json",
+            json.dumps({"seq": time.time_ns(), "text": text,
+                        "timestampMs": int(time.time() * 1000)}, ensure_ascii=False),
+        )
 
     def _loop(self) -> None:
         min_interval = 1.0 / max(1.0, self.max_infer_fps)
@@ -291,6 +312,24 @@ class AndroidBridgePoseSession:
                 cb(event, payload)
         except Exception:
             pass
+
+
+def write_voice_flag(enabled: bool, bridge_dir: str | Path | None = None) -> Path | None:
+    """原子写/删 ``voice_enabled.flag``，控制 Kotlin 侧 VoiceCommandBridge/TtsAnnouncer。
+
+    文件存在才启用语音监听；返回 flag 路径，目录不可写时返回 None（静默降级）。
+    """
+    d = Path(bridge_dir) if bridge_dir else _default_bridge_dir()
+    flag = d / "voice_enabled.flag"
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+        if enabled:
+            AndroidBridgePoseSession._atomic_write_text(flag, "1")
+        else:
+            flag.unlink(missing_ok=True)
+    except OSError:
+        return None
+    return flag
 
 
 def is_android_runtime() -> bool:

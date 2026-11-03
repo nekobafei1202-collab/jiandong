@@ -56,6 +56,10 @@ class PoseTrainingActivity : FragmentActivity() {
     private var startedAt = 0L
     private var eventSeq = 0L
     private var lastHudStamp = 0L
+    private var voiceMode = false
+    private var voiceReady = false
+    private var lastVoiceControlSeq = -1L
+    private var cameraReady = false
 
     private lateinit var timerText: TextView
     private lateinit var aiText: TextView
@@ -92,12 +96,17 @@ class PoseTrainingActivity : FragmentActivity() {
 
         front = intent.getBooleanExtra(EXTRA_FRONT, true)
         bridgeDir = File(getExternalFilesDir(null) ?: filesDir, "jiandong_pose").apply { mkdirs() }
+        voiceMode = File(bridgeDir, VoiceCommandBridge.FLAG_NAME).exists()
+        File(bridgeDir, "training_control.json").delete()
+        // Marker for VoiceCommandBridge: while this activity lives, voice
+        // commands are routed to event.json instead of voice_cmd.json.
+        File(bridgeDir, VoiceCommandBridge.TRAINING_FLAG_NAME).writeText("1")
         cameraExecutor = Executors.newSingleThreadExecutor()
         engine = MediaPipePoseEngine(this, bridgeDir) { points, width, height, _, _ ->
             overlay.submit(points, width, height)
         }.also {
             it.setFrontCamera(front)
-            it.setPaused(true)
+            it.setPaused(!voiceMode)
         }
 
         buildUi(intent.getStringExtra(EXTRA_ACTION).orEmpty().ifBlank { "深蹲" })
@@ -326,6 +335,7 @@ class PoseTrainingActivity : FragmentActivity() {
         row.addView(pause, fixed(70, 70))
         row.addView(space(12))
         val stop = label("■", 24f, true).apply {
+            contentDescription = "结束训练"
             gravity = Gravity.CENTER
             setTextColor(RECORD_RED)
             background = rounded(Color.argb(110, 0, 0, 0), 999f, Color.WHITE, dp(4))
@@ -339,6 +349,14 @@ class PoseTrainingActivity : FragmentActivity() {
 
     private fun beginSession() {
         if (sessionActive) return
+        if (voiceMode && !voiceReady) {
+            announce("请先调整位置，等待全身入镜确认。")
+            return
+        }
+        if (!cameraReady) {
+            announce("相机正在准备，请稍候。")
+            return
+        }
         sessionActive = true
         paused = false
         startedAt = SystemClock.elapsedRealtime()
@@ -357,6 +375,8 @@ class PoseTrainingActivity : FragmentActivity() {
         future.addListener({
             provider = future.get()
             bindCamera()
+            cameraReady = true
+            if (voiceMode) announce("已进入训练准备。正在检查位置，请让手机正对你，让头和脚都进入画面。位置合适后会提示你开始。")
         }, ContextCompat.getMainExecutor(this))
     }
 
@@ -365,7 +385,7 @@ class PoseTrainingActivity : FragmentActivity() {
         cameraProvider.unbindAll()
         val selector = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
         val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
-        if (!sessionActive) {
+        if (!sessionActive && !voiceMode) {
             cameraProvider.bindToLifecycle(this, selector, preview)
             return
         }
@@ -403,7 +423,7 @@ class PoseTrainingActivity : FragmentActivity() {
 
     private fun stopAndSave() {
         emitEvent("stop")
-        finish()
+        // 等 Python 写入总结后关闭，避免播报通道先被销毁。
     }
 
     private fun confirmEndTraining(onConfirm: () -> Unit) {
@@ -518,6 +538,44 @@ class PoseTrainingActivity : FragmentActivity() {
         MediaPipePoseEngine.atomicWrite(File(bridgeDir, "event.json"), payload.toString())
     }
 
+    private fun announce(text: String) {
+        if (!voiceMode) return
+        MediaPipePoseEngine.atomicWrite(File(bridgeDir, "training_speech.json"),
+            JSONObject().put("seq", System.nanoTime()).put("text", text)
+                .put("timestampMs", System.currentTimeMillis()).toString())
+    }
+
+    private fun pollVoiceControl() {
+        val file = File(bridgeDir, "training_control.json")
+        if (!file.exists()) return
+        try {
+            val command = JSONObject(file.readText())
+            val seq = command.optLong("seq", -1L)
+            if (seq == lastVoiceControlSeq) return
+            lastVoiceControlSeq = seq
+            val type = command.optString("type")
+            android.util.Log.i("TrainingVoice", "control=$type active=$sessionActive ready=$voiceReady paused=$paused")
+            when (type) {
+                "begin" -> if (!sessionActive) {
+                    if (voiceMode && !voiceReady) announce("还没有确认全身入镜，请根据位置提示调整，暂不开始计时。")
+                    else beginSession()
+                } else announce("训练已经开始。")
+                "pause" -> if (sessionActive && !paused) {
+                    hideEndConfirm()
+                    togglePause()
+                } else announce(if (sessionActive) "当前已经暂停。" else "当前尚未开始训练。")
+                "resume" -> when {
+                    confirmOverlay != null -> hideEndConfirm()
+                    sessionActive && paused -> togglePause()
+                    sessionActive -> emitEvent("voice_continue")
+                    else -> if (voiceReady) beginSession() else announce("请先调整位置，等待入镜确认。")
+                }
+                "stop" -> { hideEndConfirm(); engine.setPaused(true); stopAndSave() }
+                "voice_help", "voice_repeat", "action_next", "action_prev" -> emitEvent(type)
+            }
+        } catch (e: Exception) { android.util.Log.w("TrainingVoice", "control failed", e) }
+    }
+
     private val clockTick = object : Runnable {
         override fun run() {
             if (sessionActive && !paused && startedAt > 0L) {
@@ -532,11 +590,13 @@ class PoseTrainingActivity : FragmentActivity() {
 
     private val hudPoll = object : Runnable {
         override fun run() {
+            pollVoiceControl()
             val file = File(bridgeDir, "hud.json")
             if (file.exists() && file.lastModified() != lastHudStamp) {
                 try {
                     val hud = JSONObject(file.readText())
                     lastHudStamp = file.lastModified()
+                    if (hud.has("voiceReady")) voiceReady = hud.optBoolean("voiceReady", false)
                     if (hud.optBoolean("sessionDone", false)) {
                         // Python finished the session (last set of last action)
                         // — close so the Flet summary page is revealed.
@@ -611,6 +671,9 @@ class PoseTrainingActivity : FragmentActivity() {
                             coachTitle.text = hud.optString("title", "准备中")
                             coachSubtitle.text = hud.optString("subtitle", "保持全身入镜")
                         }
+                    } else if (voiceMode) {
+                        coachTitle.text = if (voiceReady) "位置合适" else "正在检查入镜"
+                        coachSubtitle.text = if (voiceReady) "准备好说：开始训练" else "请让头和脚都进入画面"
                     }
                 } catch (_: Exception) {
                 }
@@ -706,10 +769,14 @@ class PoseTrainingActivity : FragmentActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, results: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, results)
         if (requestCode == REQ_CAMERA && results.firstOrNull() == PackageManager.PERMISSION_GRANTED) startCamera()
-        else finish()
+        else {
+            announce("相机权限未获允许，无法进行动作识别。请使用系统读屏在应用权限中允许相机，再重新进入训练。")
+            ui.postDelayed({ closeWithoutSaving() }, 4000)
+        }
     }
 
     override fun onDestroy() {
+        File(bridgeDir, VoiceCommandBridge.TRAINING_FLAG_NAME).delete()
         ui.removeCallbacksAndMessages(null)
         demoBitmaps.forEach { it.recycle() }
         demoBitmaps.clear()
@@ -734,6 +801,7 @@ class PoseTrainingActivity : FragmentActivity() {
     }
 
     private fun iconButton(res: Int, click: () -> Unit) = ImageButton(this).apply {
+        contentDescription = if (res == android.R.drawable.ic_menu_camera) "切换前后摄像头" else "返回"
         setImageResource(res)
         setColorFilter(Color.WHITE)
         setPadding(dp(8), dp(8), dp(8), dp(8))

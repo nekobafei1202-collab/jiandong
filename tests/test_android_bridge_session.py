@@ -3,7 +3,24 @@ from __future__ import annotations
 import json
 import time
 
-from jiandong_ai.ai.session.android_bridge_session import AndroidBridgePoseSession
+from jiandong_ai.ai.session.android_bridge_session import (
+    AndroidBridgePoseSession,
+    write_voice_flag,
+)
+
+
+def test_write_voice_flag(tmp_path) -> None:
+    flag = tmp_path / "voice_enabled.flag"
+    assert write_voice_flag(True, bridge_dir=tmp_path) == flag
+    assert flag.read_text(encoding="utf-8") == "1"
+    # 重复开启幂等
+    write_voice_flag(True, bridge_dir=tmp_path)
+    assert flag.exists()
+    assert write_voice_flag(False, bridge_dir=tmp_path) == flag
+    assert not flag.exists()
+    # 关闭状态重复删除不报错
+    write_voice_flag(False, bridge_dir=tmp_path)
+    assert not flag.exists()
 
 
 def _wait_until(predicate, timeout: float = 1.0) -> None:

@@ -8,6 +8,7 @@ dependencies = [
   "flet>=0.25.0",
   "numpy>=1.26.0",
   "Pillow>=10.0.0",
+  "requests>=2.31.0",
 ]
 
 [project.optional-dependencies]
@@ -29,6 +30,7 @@ pythonpath = ["."]
 
 [tool.flet.app]
 include = ["assets", "models", "android_bridge"]
+exclude = [".tts-venv", ".speech-cache", "_test_assistant_tmp*", "_test_voice_tmp*", "_voice_eval_tmp*", "_phone_run", "_apk_inspect", "_diag_videos", "_backup", "_*.png", "_*.xml", "_*.txt", "*.log", "storage", "jiandong_data.json", "ai_config.json", "tests"]
 
 # Keep jni aligned with jni_flutter (expects ^1.1.0)
 [tool.flet.flutter.pubspec.dependency_overrides]

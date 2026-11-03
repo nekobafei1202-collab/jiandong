@@ -21,3 +21,9 @@
 ## 调试产物
 
 临时调试截图、日志、拆包目录（如 `_phone_run/`、`_apk_inspect/`、`_run_*.png`）属于一次性产物，清理时可删除；打包 APK 时不得包含这些文件。诊断视频 `_diag_videos/` 用后即删。
+
+Windows 打包使用 `.venv/Scripts/python.exe -m jiandong_ai.scripts.build_android`，以展开调试文件排除规则并在 Flet 刷新模板之后注入原生桥；直接把通配符传给打包器无法可靠排除文件。打包后检查 APK 内的 `app.zip`，确认没有 `.speech-cache/`、`.tts-venv/` 或调试截图。
+
+## 语音生成文件位置（用户约定）
+
+Serena/Qwen-TTS 的生成环境、模型、下载缓存、临时文件全部放在 `D:\appdemo` 下，不使用 C 盘默认缓存。运行生成器前设置 `TEMP`、`TMP`、`PIP_CACHE_DIR`、`HF_HOME`；桌面环境 `.tts-venv/` 和 `.speech-cache/` 不得打入 APK。

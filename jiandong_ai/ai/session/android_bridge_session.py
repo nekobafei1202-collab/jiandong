@@ -348,8 +348,4 @@ def is_android_runtime() -> bool:
 
 
 def create_pose_session(*, is_front_camera: bool = True):
-    if is_android_runtime():
-        return AndroidBridgePoseSession(is_front_camera=is_front_camera)
-    from jiandong_ai.ai.session.live_pose_session import LivePoseSession
-
-    return LivePoseSession(is_front_camera=is_front_camera)
+    return AndroidBridgePoseSession(is_front_camera=is_front_camera)

@@ -1,7 +1,7 @@
 """Orchestrates PoseResult → recognize → evaluate → feedback each frame.
 
 Live path: camera → PoseDetector → PoseResult → process_pose.
-Test path: tick may call an internal Mock / Real detector.
+Test path: tick may call an internal mock detector.
 
 exercise_id selects the recognizer. Unknown ids stay on squat.
 """
@@ -49,15 +49,8 @@ from ..pose.mock_pose_detector import MockPoseDetector
 from ..pose.pose_detector import PoseDetector
 from ..pose.pose_result import PoseResult
 
-try:
-    from ..pose.mediapipe_detector import MediaPipePoseDetector as RealPoseDetector
-except ImportError:  # pragma: no cover
-    RealPoseDetector = None  # type: ignore[misc, assignment]
-
-
 class PoseBackendMode(str, Enum):
     mock = "mock"
-    real = "real"
     external = "external"
 
 
@@ -437,7 +430,7 @@ class TrainingPipeline:
         detector = self._detector
         if detector is None:
             raise RuntimeError(
-                "TrainingPipeline.tick requires mock/real mode; "
+                "TrainingPipeline.tick requires mock mode; "
                 "use process_pose for live camera."
             )
         self._pose = detector.detect(None)
@@ -446,8 +439,4 @@ class TrainingPipeline:
     def _create_detector(self, mode: PoseBackendMode) -> PoseDetector:
         if mode == PoseBackendMode.mock:
             return MockPoseDetector()
-        if mode == PoseBackendMode.real:
-            if RealPoseDetector is None:
-                raise RuntimeError("Real pose detector is not available")
-            return RealPoseDetector()
         raise RuntimeError("external mode has no owned detector")

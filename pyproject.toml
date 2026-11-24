@@ -12,13 +12,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Windows/desktop camera + RTMPose (onnxruntime/rtmlib; MediaPipe optional fallback)
-desktop = [
-  "opencv-python>=4.8.0",
-  "onnxruntime>=1.16.0",
-  "rtmlib",
-  "mediapipe>=0.10.14",
-]
 dev = ["pytest>=8.0.0"]
 
 [project.scripts]
@@ -30,8 +23,9 @@ pythonpath = ["."]
 
 [tool.flet.app]
 include = ["assets", "models", "android_bridge"]
-exclude = [".tts-venv", ".speech-cache", "_test_assistant_tmp*", "_test_voice_tmp*", "_voice_eval_tmp*", "_phone_run", "_apk_inspect", "_diag_videos", "_backup", "_*.png", "_*.xml", "_*.txt", "*.log", "storage", "jiandong_data.json", "ai_config.json", "tests"]
+exclude = [".tts-venv", ".speech-cache", "_test_assistant_tmp*", "_test_voice_tmp*", "_voice_eval_tmp*", "_phone_run", "_apk_inspect", "_diag_videos", "_backup", "_*.png", "_*.xml", "_*.txt", "*.log", "storage", "jiandong_data.json", "ai_config.json", "tests", "models/*.onnx", "models/pose_landmarker_lite.task"]
 
-# Keep jni aligned with jni_flutter (expects ^1.1.0)
+# Use the platform-channel implementation until the JNI path works on-device.
 [tool.flet.flutter.pubspec.dependency_overrides]
+path_provider_android = "2.2.23"
 jni = "1.1.0"

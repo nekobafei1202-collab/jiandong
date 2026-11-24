@@ -1,4 +1,4 @@
-# Pose models
+# Android models
 
 ## Speech models
 
@@ -13,28 +13,6 @@ building the Android app with voice support, run these commands from the project
 
 The scripts populate `models/asr/`, `models/kws/`, and `models/tts/`.
 
-## RTMPose (default — desktop + Android bridge)
+## 姿态模型
 
-Lightweight ONNX pair borrowed from [Good-GYM](https://github.com/yo-WASSUP/Good-GYM) (MIT):
-
-| File | Role |
-|------|------|
-| `yolox_nano_8xb8-300e_humanart-40f6f0d0.onnx` | Person detection |
-| `rtmpose-t_simcc-body7_pt-body7_420e-256x192-026a1439_20230504.onnx` | COCO-17 pose |
-
-Download:
-
-```bash
-python -m jiandong_ai.scripts.download_rtmpose_models
-```
-
-Desktop inference: `rtmlib` + `onnxruntime` (CPU).  
-Android inference: same ONNX via `onnxruntime-android` (see `android_bridge/`).
-
-## MediaPipe (optional desktop fallback)
-
-`pose_landmarker_lite.task` — only used if RTMPose init fails.
-
-```bash
-python -m jiandong_ai.scripts.download_model
-```
+Android 原生桥使用 `pose_landmarker_full.task`。`prepare_android_bridge.py` 会将它复制到 APK 的原生资源目录。仓库中旧的 RTMPose ONNX 和 MediaPipe Lite 文件不再用于运行，也已从 APK 打包内容中排除。

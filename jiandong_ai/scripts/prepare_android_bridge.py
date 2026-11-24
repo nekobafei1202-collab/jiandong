@@ -150,7 +150,7 @@ def _copy_kotlin(kotlin_root: Path) -> None:
     java_stale = ANDROID / "app" / "src" / "main" / "java" / PKG_REL
     if java_stale.exists():
         shutil.rmtree(java_stale, ignore_errors=True)
-    # RTMPose ORT is desktop-only now; ensure no stale mobile class remains.
+    # Remove obsolete RTMPose bridge code from an earlier Android build.
     (dest / "RtmPoseOrt.kt").unlink(missing_ok=True)
     for path in KOTLIN_SRC.glob("*.kt"):
         if path.name == "RtmPoseOrt.kt":

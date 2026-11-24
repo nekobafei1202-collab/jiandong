@@ -37,7 +37,7 @@ from jiandong_ai.widgets.training_hud import (
 # Chinese UI strings via escapes (avoid encoding corruption on Windows tooling).
 _SQUAT = "\u6df1\u8e72"
 _ENGINE_TITLE = "\u59ff\u6001\u5f15\u64ce\u672a\u5c31\u7eea"
-_ENGINE_HINT = "\u8bf7\u5b89\u88c5 RTMPose / onnxruntime\uff08desktop\uff09"
+_ENGINE_HINT = "\u8bf7\u68c0\u67e5\u624b\u673a\u59ff\u6001\u8bc6\u522b\u670d\u52a1"
 _CAM_TITLE = "\u6444\u50cf\u5934\u5f02\u5e38"
 _CAM_HINT = "\u65e0\u6cd5\u6253\u5f00\u6444\u50cf\u5934\uff0c\u8bf7\u68c0\u67e5\u8bbe\u5907\u6743\u9650"
 _TARGET_REPS = 10

@@ -13,7 +13,7 @@ from jiandong_ai.pages.auth.register_page import build_register
 from jiandong_ai.pages.shell import MainShell
 from jiandong_ai.pages.splash.splash_page import build_splash
 from jiandong_ai.services.ai_assistant import configure_deepseek_config_path
-from jiandong_ai.services.mock_service import AppSession, MockService
+from jiandong_ai.services.mock_service import MockService
 from jiandong_ai.widgets.safe_area import mount
 
 
@@ -21,13 +21,11 @@ def _asset_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def main(page: ft.Page, *, preview: bool = False) -> None:
+def main(page: ft.Page) -> None:
     page.title = APP_NAME
     page.theme_mode = ft.ThemeMode.DARK if ThemeController.get_is_dark() else ft.ThemeMode.LIGHT
     page.bgcolor = ShellColors.canvas
     page.padding = 0
-    page.window.width = 420
-    page.window.height = 860
     page.fonts = {}
     # Needed for radial theme reveal (snapshot + growing hole).
     page.enable_screenshots = True
@@ -60,21 +58,12 @@ def main(page: ft.Page, *, preview: bool = False) -> None:
         page.bgcolor = ShellColors.canvas
         mount(page, build_splash(page, on_done=go_login))
 
-    if preview:
-        AppSession.set_user(svc.get_current_user())
-        go_shell()
-    else:
-        go_splash()
+    go_splash()
 
 
-def run(*, preview: bool = False) -> None:
-    ft.run(lambda page: main(page, preview=preview), assets_dir=str(_asset_root() / "assets"))
+def run() -> None:
+    ft.run(main, assets_dir=str(_asset_root() / "assets"))
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--preview", action="store_true")
-    args = parser.parse_args()
-    run(preview=args.preview)
+    run()

@@ -1,4 +1,4 @@
-"""Flet entry point for desktop and Android packaging."""
+"""Flet entry point for Android packaging."""
 
 from __future__ import annotations
 

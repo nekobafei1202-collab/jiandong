@@ -1,9 +1,6 @@
-# Android Pose Bridge (Good-GYM RTMPose ONNX)
+# Android Pose Bridge (MediaPipe Tasks)
 
-True-device pose uses the **same lightweight ONNX** as desktop ([Good-GYM](https://github.com/yo-WASSUP/Good-GYM), MIT):
-
-- `yolox_nano_…onnx` (bundled; person-det optional on device)
-- `rtmpose-t_…onnx` via **onnxruntime-android**
+手机姿态识别使用 CameraX 与 MediaPipe Tasks `pose_landmarker_full.task`，由原生桥输出 COCO-17 关键点。
 
 CameraX writes:
 
@@ -17,7 +14,6 @@ Python [`AndroidBridgePoseSession`](../jiandong_ai/ai/session/android_bridge_ses
 
 ```bash
 # 1) models
-python -m jiandong_ai.scripts.download_rtmpose_models
 python -m jiandong_ai.scripts.download_kws_model   # 无障碍语音口令模型（sherpa-onnx KWS）
 python -m jiandong_ai.scripts.download_tts_model   # 离线 TTS 兜底模型（vits-zh-aishell3 int8）
 python -m jiandong_ai.scripts.download_asr_model   # “小健”自由对话离线识别（SenseVoice + VAD）

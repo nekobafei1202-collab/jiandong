@@ -6,7 +6,7 @@ AI 健身辅助 App，运行于 Android 手机。电脑用于编辑代码、运�
 
 ## 下载与安装
 
-普通用户只需到 [Releases](https://github.com/nekobafei1202-collab/jiandong_ai_python/releases) 下载最新的 `.apk`，在 Android 手机上打开文件并按系统提示安装；无需下载源码、Python 或模型文件。首次手动安装时，系统可能要求允许文件管理器安装应用。
+普通用户只需到 [Releases](https://github.com/nekobafei1202-collab/jiandong/releases) 下载最新的 `.apk`，在 Android 手机上打开文件并按系统提示安装；无需下载源码、Python 或模型文件。首次手动安装时，系统可能要求允许文件管理器安装应用。
 
 当前通用 APK 包含 `arm64-v8a`、`armeabi-v7a`、`x86_64` 三种架构，要求 Android 7.0（API 24）及以上。已在 `arm64-v8a` 真机验证安装和启动；其余架构已打包，尚未分别做真机验证。APK 内含离线语音和姿态模型，因此文件较大。
 
